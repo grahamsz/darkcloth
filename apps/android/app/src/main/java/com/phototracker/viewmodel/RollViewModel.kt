@@ -64,11 +64,22 @@ class RollViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateRoll(rollId: String, name: String, filmId: String?) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.updateRoll(rollId, mapOf("name" to name, "film_id" to filmId))
+                if (response.isSuccessful) loadData()
+                else _uiState.update { it.copy(error = "Failed to update roll") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
     fun markRollDeveloped(rollId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                // Use current time as developed_at
                 val now = java.time.OffsetDateTime.now().toString()
                 val response = apiService.updateRoll(rollId, mapOf("developed_at" to now))
                 if (response.isSuccessful) {
@@ -78,6 +89,18 @@ class RollViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun deleteRoll(rollId: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.deleteRoll(rollId)
+                if (response.isSuccessful) loadData()
+                else _uiState.update { it.copy(error = "Failed to delete roll") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
             }
         }
     }

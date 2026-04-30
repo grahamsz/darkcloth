@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -23,9 +25,17 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
 
+    var editingCamera by remember { mutableStateOf<Camera?>(null) }
+    var editingLens by remember { mutableStateOf<Lens?>(null) }
+    var editingFilm by remember { mutableStateOf<FilmStock?>(null) }
+
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Gear")
             }
         }
@@ -33,6 +43,16 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)) {
+
+            if (uiState.error != null) {
+                Text(
+                    uiState.error!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+
             TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
@@ -44,9 +64,21 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
             }
 
             when (selectedTab) {
-                0 -> CameraList(uiState.cameras)
-                1 -> LensList(uiState.lenses)
-                2 -> FilmStockList(uiState.films)
+                0 -> CameraList(
+                    cameras = uiState.cameras,
+                    onEdit = { editingCamera = it },
+                    onDelete = { viewModel.deleteCamera(it.id) }
+                )
+                1 -> LensList(
+                    lenses = uiState.lenses,
+                    onEdit = { editingLens = it },
+                    onDelete = { viewModel.deleteLens(it.id) }
+                )
+                2 -> FilmStockList(
+                    films = uiState.films,
+                    onEdit = { editingFilm = it },
+                    onDelete = { viewModel.deleteFilmStock(it.id) }
+                )
             }
         }
     }
@@ -77,9 +109,40 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadGear()
+    editingCamera?.let { camera ->
+        EditCameraDialog(
+            camera = camera,
+            onDismiss = { editingCamera = null },
+            onSave = { name, maker ->
+                viewModel.updateCamera(camera.id, name, maker)
+                editingCamera = null
+            }
+        )
     }
+
+    editingLens?.let { lens ->
+        EditLensDialog(
+            lens = lens,
+            onDismiss = { editingLens = null },
+            onSave = { name, fl, aperture ->
+                viewModel.updateLens(lens.id, name, fl, aperture)
+                editingLens = null
+            }
+        )
+    }
+
+    editingFilm?.let { film ->
+        EditFilmDialog(
+            film = film,
+            onDismiss = { editingFilm = null },
+            onSave = { name, iso, process ->
+                viewModel.updateFilmStock(film.id, name, iso, process)
+                editingFilm = null
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) { viewModel.loadGear() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,9 +156,9 @@ fun AddCameraDialog(onDismiss: () -> Unit, onAdd: (String, String?) -> Unit) {
         title = { Text("Add Camera") },
         text = {
             Column {
-                TextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                TextField(value = maker, onValueChange = { maker = it }, label = { Text("Maker") })
+                OutlinedTextField(value = maker, onValueChange = { maker = it }, label = { Text("Maker") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -103,9 +166,32 @@ fun AddCameraDialog(onDismiss: () -> Unit, onAdd: (String, String?) -> Unit) {
                 Text("Add")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditCameraDialog(camera: Camera, onDismiss: () -> Unit, onSave: (String, String?) -> Unit) {
+    var name by remember { mutableStateOf(camera.name) }
+    var maker by remember { mutableStateOf(camera.maker ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Camera") },
+        text = {
+            Column {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = maker, onValueChange = { maker = it }, label = { Text("Maker") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name, maker.takeIf { it.isNotBlank() }) }, enabled = name.isNotBlank()) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -121,11 +207,11 @@ fun AddLensDialog(onDismiss: () -> Unit, onAdd: (String, Double?, String?) -> Un
         title = { Text("Add Lens") },
         text = {
             Column {
-                TextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                TextField(value = fl, onValueChange = { fl = it }, label = { Text("Focal Length (mm)") })
+                OutlinedTextField(value = fl, onValueChange = { fl = it }, label = { Text("Focal Length (mm)") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                TextField(value = aperture, onValueChange = { aperture = it }, label = { Text("Max Aperture (e.g. f/1.4)") })
+                OutlinedTextField(value = aperture, onValueChange = { aperture = it }, label = { Text("Max Aperture") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -133,9 +219,35 @@ fun AddLensDialog(onDismiss: () -> Unit, onAdd: (String, Double?, String?) -> Un
                 Text("Add")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditLensDialog(lens: Lens, onDismiss: () -> Unit, onSave: (String, Double?, String?) -> Unit) {
+    var name by remember { mutableStateOf(lens.name) }
+    var fl by remember { mutableStateOf(lens.focalLengthMm?.toString() ?: "") }
+    var aperture by remember { mutableStateOf(lens.maxAperture ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Lens") },
+        text = {
+            Column {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = fl, onValueChange = { fl = it }, label = { Text("Focal Length (mm)") }, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = aperture, onValueChange = { aperture = it }, label = { Text("Max Aperture") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name, fl.toDoubleOrNull(), aperture.takeIf { it.isNotBlank() }) }, enabled = name.isNotBlank()) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -151,11 +263,11 @@ fun AddFilmDialog(onDismiss: () -> Unit, onAdd: (String, Int?, String?) -> Unit)
         title = { Text("Add Film Stock") },
         text = {
             Column {
-                TextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                TextField(value = iso, onValueChange = { iso = it }, label = { Text("ISO") })
+                OutlinedTextField(value = iso, onValueChange = { iso = it }, label = { Text("ISO") }, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                TextField(value = process, onValueChange = { process = it }, label = { Text("Process (e.g. C-41)") })
+                OutlinedTextField(value = process, onValueChange = { process = it }, label = { Text("Process (e.g. C-41)") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -163,51 +275,110 @@ fun AddFilmDialog(onDismiss: () -> Unit, onAdd: (String, Int?, String?) -> Unit)
                 Text("Add")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditFilmDialog(film: FilmStock, onDismiss: () -> Unit, onSave: (String, Int?, String?) -> Unit) {
+    var name by remember { mutableStateOf(film.name) }
+    var iso by remember { mutableStateOf(film.iso?.toString() ?: "") }
+    var process by remember { mutableStateOf(film.process ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Film Stock") },
+        text = {
+            Column {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = iso, onValueChange = { iso = it }, label = { Text("ISO") }, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = process, onValueChange = { process = it }, label = { Text("Process") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name, iso.toIntOrNull(), process.takeIf { it.isNotBlank() }) }, enabled = name.isNotBlank()) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
 @Composable
-fun CameraList(cameras: List<Camera>) {
+fun CameraList(cameras: List<Camera>, onEdit: (Camera) -> Unit, onDelete: (Camera) -> Unit) {
     LazyColumn {
-        items(cameras) { camera ->
+        items(cameras, key = { it.id }) { camera ->
             ListItem(
                 headlineContent = { Text(camera.name) },
-                supportingContent = { camera.maker?.let { Text(it) } }
+                supportingContent = { camera.maker?.let { Text(it) } },
+                trailingContent = {
+                    Row {
+                        IconButton(onClick = { onEdit(camera) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
+                        }
+                        IconButton(onClick = { onDelete(camera) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete",
+                                modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
             )
-            Divider()
+            HorizontalDivider()
         }
     }
 }
 
 @Composable
-fun LensList(lenses: List<Lens>) {
+fun LensList(lenses: List<Lens>, onEdit: (Lens) -> Unit, onDelete: (Lens) -> Unit) {
     LazyColumn {
-        items(lenses) { lens ->
+        items(lenses, key = { it.id }) { lens ->
             ListItem(
                 headlineContent = { Text(lens.name) },
-                supportingContent = { 
-                    Text("${lens.focalLengthMm ?: "?? "}mm ${lens.maxAperture ?: ""}")
+                supportingContent = {
+                    Text("${lens.focalLengthMm ?: "??"}mm ${lens.maxAperture ?: ""}")
+                },
+                trailingContent = {
+                    Row {
+                        IconButton(onClick = { onEdit(lens) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
+                        }
+                        IconButton(onClick = { onDelete(lens) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete",
+                                modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             )
-            Divider()
+            HorizontalDivider()
         }
     }
 }
 
 @Composable
-fun FilmStockList(films: List<FilmStock>) {
+fun FilmStockList(films: List<FilmStock>, onEdit: (FilmStock) -> Unit, onDelete: (FilmStock) -> Unit) {
     LazyColumn {
-        items(films) { film ->
+        items(films, key = { it.id }) { film ->
             ListItem(
                 headlineContent = { Text(film.name) },
-                supportingContent = { 
-                    Text("ISO ${film.iso ?: "?? "} - ${film.process ?: ""}")
+                supportingContent = {
+                    Text("ISO ${film.iso ?: "??"} · ${film.process ?: ""}")
+                },
+                trailingContent = {
+                    Row {
+                        IconButton(onClick = { onEdit(film) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
+                        }
+                        IconButton(onClick = { onDelete(film) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete",
+                                modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             )
-            Divider()
+            HorizontalDivider()
         }
     }
 }

@@ -69,6 +69,30 @@ class GearViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateCamera(id: String, name: String, maker: String?) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.updateCamera(id, mapOf("name" to name, "maker" to maker))
+                if (response.isSuccessful) loadGear()
+                else _uiState.update { it.copy(error = "Failed to update camera") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun deleteCamera(id: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.deleteCamera(id)
+                if (response.isSuccessful) loadGear()
+                else _uiState.update { it.copy(error = "Failed to delete camera") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
     fun createLens(name: String, focalLength: Double?, maxAperture: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true) }
@@ -90,6 +114,34 @@ class GearViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateLens(id: String, name: String, focalLength: Double?, maxAperture: String?) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.updateLens(id, mapOf(
+                    "name" to name,
+                    "focal_length_mm" to focalLength,
+                    "max_aperture" to maxAperture
+                ))
+                if (response.isSuccessful) loadGear()
+                else _uiState.update { it.copy(error = "Failed to update lens") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun deleteLens(id: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.deleteLens(id)
+                if (response.isSuccessful) loadGear()
+                else _uiState.update { it.copy(error = "Failed to delete lens") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
     fun createFilmStock(name: String, iso: Int?, process: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true) }
@@ -107,6 +159,34 @@ class GearViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isCreating = false, error = e.message) }
+            }
+        }
+    }
+
+    fun updateFilmStock(id: String, name: String, iso: Int?, process: String?) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.updateFilmStock(id, mapOf(
+                    "name" to name,
+                    "iso" to iso,
+                    "process" to process
+                ))
+                if (response.isSuccessful) loadGear()
+                else _uiState.update { it.copy(error = "Failed to update film stock") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun deleteFilmStock(id: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.deleteFilmStock(id)
+                if (response.isSuccessful) loadGear()
+                else _uiState.update { it.copy(error = "Failed to delete film stock") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
             }
         }
     }

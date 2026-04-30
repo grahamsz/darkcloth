@@ -33,7 +33,15 @@ fun PhototrackerNavGraph(navController: NavHostController, startDestination: Str
         }
         composable(Screen.PhotoDetail.route) { backStackEntry ->
             val id = backStackEntry.arguments?.getString("id") ?: return@composable
-            PhotoDetailScreen(id = id, onBack = { navController.popBackStack() })
+            PhotoDetailScreen(
+                id = id,
+                onBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(Screen.EditPhoto.createRoute(id)) }
+            )
+        }
+        composable(Screen.EditPhoto.route) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id") ?: return@composable
+            EditPhotographScreen(id = id, onBack = { navController.popBackStack() })
         }
     }
 }
