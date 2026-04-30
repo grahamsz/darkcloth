@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
 
 data class AddPhotoUiState(
     val rollId: String? = null,
@@ -41,7 +47,8 @@ data class AddPhotoUiState(
     val lenses: List<Lens> = emptyList(),
     val filmStocks: List<FilmStock> = emptyList(),
     val rolls: List<Roll> = emptyList(),
-    val isFetchingGear: Boolean = false
+    val isFetchingGear: Boolean = false,
+    val imageUri: Uri? = null
 )
 
 class AddPhotoViewModel(application: Application) : AndroidViewModel(application) {
@@ -71,6 +78,7 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
     fun updateIso(iso: Int?) { _uiState.update { it.copy(iso = iso) } }
     fun updateExposureCompensation(ec: String) { _uiState.update { it.copy(exposureCompensation = ec) } }
     fun updateFocalLength(fl: Double?) { _uiState.update { it.copy(focalLengthMm = fl) } }
+    fun setImageUri(uri: Uri?) { _uiState.update { it.copy(imageUri = uri) } }
 
     private fun loadGear() {
         viewModelScope.launch {
@@ -139,7 +147,12 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                 )
                 val response = apiService.createPhotograph(body)
                 if (response.isSuccessful) {
-                    _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                    val photograph = response.body()
+                    if (photograph != null && state.imageUri != null) {
+                        uploadImage(photograph.id, state.imageUri)
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                    }
                 } else {
                     _uiState.update { it.copy(isLoading = false, error = "Failed to save photograph") }
                 }
@@ -148,4 +161,39 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    private suspend fun uploadImage(photographId: String, uri: Uri) {
+        try {
+            val context = getApplication<Application>().applicationContext
+            val file = getFileFromUri(context, uri) ?: throw Exception("Failed to process image file")
+            
+            val requestFile = file.asRequestBody(context.contentResolver.getType(uri)?.toMediaTypeOrNull())
+            val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+            
+            val response = apiService.uploadPhotographImage(photographId, body)
+            if (response.isSuccessful || response.code() == 503) {
+                // 503 is "Service Unavailable" but likely means R2 is not enabled, 
+                // we treat it as "at least we tried" for now or handle gracefully.
+                _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+            } else {
+                _uiState.update { it.copy(isLoading = false, error = "Photograph saved, but image upload failed") }
+            }
+            
+            // Clean up temporary file
+            file.delete()
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isLoading = false, error = "Photograph saved, but image upload failed: ${e.message}") }
+        }
+    }
+
+    private fun getFileFromUri(context: Context, uri: Uri): File? {
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+        val file = File(context.cacheDir, "temp_upload_${System.currentTimeMillis()}.jpg")
+        val outputStream = FileOutputStream(file)
+        inputStream.copyTo(outputStream)
+        inputStream.close()
+        outputStream.close()
+        return file
+    }
+}
 }

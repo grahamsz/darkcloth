@@ -2,22 +2,28 @@ package com.phototracker.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.phototracker.viewmodel.AddPhotoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +44,12 @@ fun AddPhotoScreen(
         ) {
             viewModel.captureLocation()
         }
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        viewModel.setImageUri(uri)
     }
 
     LaunchedEffect(uiState.isSuccess) {
@@ -69,6 +81,39 @@ fun AddPhotoScreen(
                 .padding(16.dp)
                 .verticalScroll(scrollState)
         ) {
+            // Image Picker Section
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clickable { imagePickerLauncher.launch("image/*") }
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (uiState.imageUri != null) {
+                    Box {
+                        AsyncImage(
+                            model = uiState.imageUri,
+                            contentDescription = "Selected Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        IconButton(
+                            onClick = { viewModel.setImageUri(null) },
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove Image", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(48.dp))
+                        Text("Add Reference Image")
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Gear Selection
             GearDropdown(
                 label = "Roll",

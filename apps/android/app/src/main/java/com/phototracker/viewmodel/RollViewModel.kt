@@ -48,23 +48,20 @@ class RollViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun createRoll(name: String, filmId: String?) {
+    fun markRollDeveloped(rollId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isCreating = true) }
+            _uiState.update { it.copy(isLoading = true) }
             try {
-                val body = mapOf(
-                    "name" to name,
-                    "film_id" to filmId
-                )
-                val response = apiService.createRoll(body)
+                // Use current time as developed_at
+                val now = java.time.OffsetDateTime.now().toString()
+                val response = apiService.updateRoll(rollId, mapOf("developed_at" to now))
                 if (response.isSuccessful) {
-                    _uiState.update { it.copy(isCreating = false) }
                     loadData()
                 } else {
-                    _uiState.update { it.copy(isCreating = false, error = "Failed to create roll") }
+                    _uiState.update { it.copy(isLoading = false, error = "Failed to mark roll as developed") }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isCreating = false, error = e.message ?: "An error occurred") }
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }

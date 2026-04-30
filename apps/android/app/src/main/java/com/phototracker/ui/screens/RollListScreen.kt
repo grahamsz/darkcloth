@@ -49,7 +49,7 @@ fun RollListScreen(viewModel: RollViewModel = viewModel()) {
             } else {
                 LazyColumn {
                     items(uiState.rolls) { roll ->
-                        RollItem(roll = roll)
+                        RollItem(roll = roll, onDevelop = { viewModel.markRollDeveloped(it) })
                         Divider()
                     }
                 }
@@ -150,11 +150,18 @@ fun CreateRollDialog(
 }
 
 @Composable
-fun RollItem(roll: Roll) {
+fun RollItem(roll: Roll, onDevelop: (String) -> Unit) {
     ListItem(
         headlineContent = { Text(roll.name) },
         supportingContent = { 
             Text("Loaded: ${roll.loadedAt ?: "Unknown"} | Developed: ${roll.developedAt ?: "No"}")
+        },
+        trailingContent = {
+            if (roll.developedAt == null) {
+                TextButton(onClick = { onDevelop(roll.id) }) {
+                    Text("Develop")
+                }
+            }
         }
     )
 }
