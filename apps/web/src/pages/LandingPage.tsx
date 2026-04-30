@@ -89,7 +89,7 @@ export function LandingPage() {
           </p>
           <div className="actions">
             <Link className="primary" to="/register">Start logging</Link>
-            <a className="secondary" href="/api/openapi.yaml">API spec</a>
+            <a className="secondary" href="/downloads/phototracker.apk" download>Android app</a>
           </div>
         </div>
 
@@ -152,6 +152,7 @@ export function LandingPage() {
           <Link to="/login">Sign in</Link>
           <Link to="/register">Register</Link>
           <a href="/api/openapi.yaml">API</a>
+          <a href="/downloads/phototracker.apk" download>Android</a>
         </nav>
       </footer>
     </div>

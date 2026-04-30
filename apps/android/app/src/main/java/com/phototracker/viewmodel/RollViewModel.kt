@@ -48,6 +48,22 @@ class RollViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun createRoll(name: String, filmId: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCreating = true) }
+            try {
+                val response = apiService.createRoll(mapOf("name" to name, "film_id" to filmId))
+                if (response.isSuccessful) {
+                    loadData()
+                } else {
+                    _uiState.update { it.copy(isCreating = false, error = "Failed to create roll") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isCreating = false, error = e.message) }
+            }
+        }
+    }
+
     fun markRollDeveloped(rollId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }

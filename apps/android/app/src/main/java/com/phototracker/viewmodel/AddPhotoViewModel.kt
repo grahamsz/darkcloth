@@ -196,4 +196,3 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
         return file
     }
 }
-}
