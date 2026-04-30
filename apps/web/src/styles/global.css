@@ -120,23 +120,70 @@ h1 {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 24px 80px rgba(31, 35, 32, 0.12);
-  padding: 22px;
+  overflow: hidden;
 }
 
-.preview-header {
+.preview-roll-header {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 22px;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 16px;
+  background: rgba(47, 105, 92, 0.05);
 }
 
-.preview-header span { color: var(--warm); font-weight: 800; }
+.preview-roll-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
 
-dl { display: grid; gap: 14px; margin: 20px 0; }
+.preview-film-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1;
+}
+
+.preview-roll-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.preview-frame {
+  padding: 18px 22px 22px;
+}
+
+.preview-frame-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--warm);
+  color: var(--warm);
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-bottom: 14px;
+  font-family: var(--mono);
+}
+
+dl { display: grid; gap: 12px; margin: 0 0 18px; }
 dl div { display: flex; justify-content: space-between; gap: 20px; }
-dt { color: var(--muted); }
-dd { margin: 0; font-weight: 680; text-align: right; font-family: var(--mono); font-size: 0.87rem; }
+dt { color: var(--muted); font-size: 0.87rem; }
+dd { margin: 0; font-weight: 700; text-align: right; font-family: var(--mono); font-size: 0.84rem; }
+
+.preview-notes {
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.82rem;
+}
 
 .reference-image {
   aspect-ratio: 4 / 3;
@@ -162,6 +209,18 @@ dd { margin: 0; font-weight: 680; text-align: right; font-family: var(--mono); f
 .feature-item {
   background: var(--paper);
   padding: 26px 28px 28px;
+}
+
+.feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(47, 105, 92, 0.1);
+  color: var(--accent);
+  margin-bottom: 14px;
 }
 
 .feature-item h3 {
