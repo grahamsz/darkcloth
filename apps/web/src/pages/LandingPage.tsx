@@ -1,6 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Navigate } from "react-router-dom";
 
 export function LandingPage() {
   const { user, loading } = useAuth();
@@ -26,7 +25,7 @@ export function LandingPage() {
           </p>
           <div className="actions">
             <Link className="primary" to="/register">Start logging</Link>
-            <a className="secondary" href="/developers">API docs</a>
+            <a className="secondary" href="/api/openapi.yaml">API spec</a>
           </div>
         </div>
 
@@ -38,12 +37,48 @@ export function LandingPage() {
           <dl>
             <div><dt>Camera</dt><dd>Nikon FM2</dd></div>
             <div><dt>Lens</dt><dd>50mm f/1.8</dd></div>
-            <div><dt>Exposure</dt><dd>1/250 at f/5.6</dd></div>
+            <div><dt>Exposure</dt><dd>1/250 · f/5.6</dd></div>
             <div><dt>GPS</dt><dd>40.7608, −111.8910</dd></div>
           </dl>
           <div className="reference-image"></div>
         </div>
       </section>
+
+      <section className="features" aria-label="Features">
+        <div className="feature-item">
+          <h3>Film & Rolls</h3>
+          <p>Track film stocks by name, ISO, and process. Log loading and development dates per roll.</p>
+        </div>
+        <div className="feature-item">
+          <h3>Camera inventory</h3>
+          <p>Catalog your cameras with make and model. Attach them to individual frames for complete records.</p>
+        </div>
+        <div className="feature-item">
+          <h3>Lens library</h3>
+          <p>Store focal length and maximum aperture. Know which glass made which shot.</p>
+        </div>
+        <div className="feature-item">
+          <h3>Exposure data</h3>
+          <p>Record shutter speed, aperture, and compensation. Log notes per frame, not per roll.</p>
+        </div>
+        <div className="feature-item">
+          <h3>GPS coordinates</h3>
+          <p>Latitude and longitude per photograph. Know exactly where on earth each frame was made.</p>
+        </div>
+        <div className="feature-item">
+          <h3>Reference images</h3>
+          <p>Attach images to any frame — test prints, contact sheet scans, location photos.</p>
+        </div>
+      </section>
+
+      <footer className="landing-footer">
+        <span>Phototracker</span>
+        <nav aria-label="Footer">
+          <Link to="/login">Sign in</Link>
+          <Link to="/register">Register</Link>
+          <a href="/api/openapi.yaml">API</a>
+        </nav>
+      </footer>
     </div>
   );
 }

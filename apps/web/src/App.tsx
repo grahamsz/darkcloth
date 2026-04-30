@@ -8,6 +8,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { PhotosPage } from "./pages/PhotosPage";
 import { PhotoNewPage } from "./pages/PhotoNewPage";
 import { PhotoDetailPage } from "./pages/PhotoDetailPage";
+import { PhotoEditPage } from "./pages/PhotoEditPage";
 import { GearPage } from "./pages/GearPage";
 
 export function App() {
@@ -25,6 +26,7 @@ export function App() {
               <Route path="/app/photos" element={<PhotosPage />} />
               <Route path="/app/photos/new" element={<PhotoNewPage />} />
               <Route path="/app/photos/:id" element={<PhotoDetailPage />} />
+              <Route path="/app/photos/:id/edit" element={<PhotoEditPage />} />
               <Route path="/app/cameras" element={<GearPage section="cameras" />} />
               <Route path="/app/lenses" element={<GearPage section="lenses" />} />
               <Route path="/app/films" element={<GearPage section="films" />} />

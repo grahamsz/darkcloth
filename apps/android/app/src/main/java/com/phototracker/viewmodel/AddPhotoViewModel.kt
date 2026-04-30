@@ -1,11 +1,18 @@
 package com.phototracker.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.LocationServices
 import com.phototracker.api.ApiClient
+import com.phototracker.data.model.Camera
+import com.phototracker.data.model.FilmStock
+import com.phototracker.data.model.Lens
+import com.phototracker.data.model.Roll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +36,12 @@ data class AddPhotoUiState(
     val longitude: Double? = null,
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val cameras: List<Camera> = emptyList(),
+    val lenses: List<Lens> = emptyList(),
+    val filmStocks: List<FilmStock> = emptyList(),
+    val rolls: List<Roll> = emptyList(),
+    val isFetchingGear: Boolean = false
 )
 
 class AddPhotoViewModel(application: Application) : AndroidViewModel(application) {
@@ -40,8 +52,12 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<AddPhotoUiState> = _uiState.asStateFlow()
 
     init {
+        refreshData()
+    }
+
+    fun refreshData() {
         captureLocation()
-        loadRecentGear()
+        loadGear()
     }
 
     fun updateRollId(id: String?) { _uiState.update { it.copy(rollId = id) } }
@@ -56,15 +72,41 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
     fun updateExposureCompensation(ec: String) { _uiState.update { it.copy(exposureCompensation = ec) } }
     fun updateFocalLength(fl: Double?) { _uiState.update { it.copy(focalLengthMm = fl) } }
 
-    private fun loadRecentGear() {
-        // In a real app, this would load from a local DB or separate 'recent' endpoint
-        // For now, we'll just have the UI fetch these if needed or provide placeholders
+    private fun loadGear() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFetchingGear = true) }
+            try {
+                val camerasRes = apiService.listCameras()
+                val lensesRes = apiService.listLenses()
+                val filmsRes = apiService.listFilmStocks()
+                val rollsRes = apiService.listRolls()
+
+                _uiState.update { state ->
+                    state.copy(
+                        isFetchingGear = false,
+                        cameras = camerasRes.body()?.items ?: emptyList(),
+                        lenses = lensesRes.body()?.items ?: emptyList(),
+                        filmStocks = filmsRes.body()?.items ?: emptyList(),
+                        rolls = rollsRes.body()?.items ?: emptyList()
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isFetchingGear = false, error = "Failed to load gear: ${e.message}") }
+            }
+        }
     }
 
     fun captureLocation() {
+        val context = getApplication<Application>().applicationContext
+        val hasFineLocation = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasFineLocation && !hasCoarseLocation) {
+            return
+        }
+
         viewModelScope.launch {
             try {
-                // Simplified: assuming permissions are granted for now
                 val location: Location? = fusedLocationClient.lastLocation.await()
                 location?.let {
                     _uiState.update { state -> state.copy(latitude = it.latitude, longitude = it.longitude) }

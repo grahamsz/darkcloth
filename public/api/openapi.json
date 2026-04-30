@@ -3,6 +3,9 @@
   "info": {
     "title": "Phototracker API",
     "version": "0.1.0",
+    "license": {
+      "name": "Proprietary"
+    },
     "description": "API for tracking film photographs \u2014 cameras, lenses, film stocks, rolls, exposures, and reference images.\n"
   },
   "servers": [
@@ -77,8 +80,10 @@
             "type": "string"
           },
           "maker": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "created_at": {
             "type": "string",
@@ -106,12 +111,16 @@
             "type": "string"
           },
           "focal_length_mm": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "max_aperture": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "e.g. \"f/1.4\""
           },
           "created_at": {
@@ -140,12 +149,16 @@
             "type": "string"
           },
           "iso": {
-            "type": "integer",
-            "nullable": true
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "process": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "e.g. \"C-41\", \"E-6\", \"B&W\""
           },
           "created_at": {
@@ -171,21 +184,27 @@
             "type": "string"
           },
           "film_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
           },
           "loaded_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "developed_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "created_at": {
             "type": "string",
@@ -210,72 +229,104 @@
             "type": "string"
           },
           "roll_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "camera_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "lens_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "film_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "frame_number": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "taken_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "aperture": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "e.g. \"f/5.6\""
           },
           "shutter_speed": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "e.g. \"1/250\""
           },
           "iso": {
-            "type": "integer",
-            "nullable": true
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "exposure_compensation": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "e.g. \"+1\", \"-0.5\""
           },
           "focal_length_mm": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "latitude": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "longitude": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "altitude_m": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "gps_accuracy_m": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "notes": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "created_at": {
             "type": "string",
@@ -308,21 +359,29 @@
             "description": "MIME type, e.g. \"image/jpeg\""
           },
           "width": {
-            "type": "integer",
-            "nullable": true
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "height": {
-            "type": "integer",
-            "nullable": true
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "original_filename": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "url": {
-            "type": "string",
-            "description": "Presigned R2 URL (short-lived) \u2014 absent until R2 is enabled",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Presigned R2 URL (short-lived) \u2014 absent until R2 is enabled"
           },
           "created_at": {
             "type": "string",
@@ -363,7 +422,7 @@
         }
       },
       "ServiceUnavailable": {
-        "description": "Service unavailable",
+        "description": "R2 not yet enabled",
         "content": {
           "application/json": {
             "schema": {
@@ -803,6 +862,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
@@ -843,6 +905,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -962,6 +1027,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
@@ -1002,6 +1070,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -1128,6 +1199,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
@@ -1169,6 +1243,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -1212,18 +1289,24 @@
                     "type": "string"
                   },
                   "film_id": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "loaded_at": {
-                    "type": "string",
-                    "format": "date-time",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
                   },
                   "developed_at": {
-                    "type": "string",
-                    "format": "date-time",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
                   }
                 }
               }
@@ -1324,6 +1407,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
@@ -1401,6 +1487,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -1441,69 +1530,101 @@
                 "type": "object",
                 "properties": {
                   "roll_id": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "camera_id": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "lens_id": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "film_id": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "frame_number": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "taken_at": {
-                    "type": "string",
-                    "format": "date-time",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
                   },
                   "aperture": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "shutter_speed": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "iso": {
-                    "type": "integer",
-                    "nullable": true
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
                   },
                   "exposure_compensation": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "focal_length_mm": {
-                    "type": "number",
-                    "nullable": true
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
-                    "nullable": true
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "longitude": {
-                    "type": "number",
-                    "nullable": true
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "altitude_m": {
-                    "type": "number",
-                    "nullable": true
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "gps_accuracy_m": {
-                    "type": "number",
-                    "nullable": true
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "notes": {
-                    "type": "string",
-                    "nullable": true
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 }
               }
@@ -1613,14 +1734,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "503": {
-            "description": "R2 not yet enabled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/ServiceUnavailable"
           }
         }
       }

@@ -2,6 +2,8 @@ openapi: 3.1.0
 info:
   title: Phototracker API
   version: 0.1.0
+  license:
+    name: Proprietary
   description: |
     API for tracking film photographs — cameras, lenses, film stocks, rolls, exposures, and reference images.
 servers:
@@ -51,8 +53,9 @@ components:
         name:
           type: string
         maker:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         created_at:
           type: string
           format: date-time
@@ -69,11 +72,13 @@ components:
         name:
           type: string
         focal_length_mm:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         max_aperture:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: e.g. "f/1.4"
         created_at:
           type: string
@@ -91,11 +96,13 @@ components:
         name:
           type: string
         iso:
-          type: integer
-          nullable: true
+          type:
+            - integer
+            - "null"
         process:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: e.g. "C-41", "E-6", "B&W"
         created_at:
           type: string
@@ -111,18 +118,21 @@ components:
         user_id:
           type: string
         film_id:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         name:
           type: string
         loaded_at:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         developed_at:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -137,57 +147,73 @@ components:
         user_id:
           type: string
         roll_id:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         camera_id:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         lens_id:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         film_id:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         frame_number:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         taken_at:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         aperture:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: e.g. "f/5.6"
         shutter_speed:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: e.g. "1/250"
         iso:
-          type: integer
-          nullable: true
+          type:
+            - integer
+            - "null"
         exposure_compensation:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: e.g. "+1", "-0.5"
         focal_length_mm:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         latitude:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         longitude:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         altitude_m:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         gps_accuracy_m:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         notes:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         created_at:
           type: string
           format: date-time
@@ -208,18 +234,22 @@ components:
           type: string
           description: MIME type, e.g. "image/jpeg"
         width:
-          type: integer
-          nullable: true
+          type:
+            - integer
+            - "null"
         height:
-          type: integer
-          nullable: true
+          type:
+            - integer
+            - "null"
         original_filename:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         url:
-          type: string
+          type:
+            - string
+            - "null"
           description: Presigned R2 URL (short-lived) — absent until R2 is enabled
-          nullable: true
         created_at:
           type: string
           format: date-time
@@ -244,7 +274,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     ServiceUnavailable:
-      description: Service unavailable
+      description: R2 not yet enabled
       content:
         application/json:
           schema:
@@ -521,6 +551,8 @@ paths:
                       $ref: "#/components/schemas/Lens"
                   total:
                     type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createLens
       summary: Add a lens
@@ -545,6 +577,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Lens"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/gear/lenses/{id}:
     parameters:
@@ -619,6 +653,8 @@ paths:
                       $ref: "#/components/schemas/FilmStock"
                   total:
                     type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createFilmStock
       summary: Add a film stock
@@ -643,6 +679,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FilmStock"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/gear/films/{id}:
     parameters:
@@ -721,6 +759,8 @@ paths:
                       $ref: "#/components/schemas/Roll"
                   total:
                     type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createRoll
       summary: Start a roll
@@ -746,6 +786,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Roll"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/rolls/{id}:
     parameters:
@@ -775,16 +817,19 @@ paths:
                 name:
                   type: string
                 film_id:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 loaded_at:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
-                  nullable: true
                 developed_at:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
-                  nullable: true
       responses:
         "200":
           description: Updated roll
@@ -843,6 +888,8 @@ paths:
                       $ref: "#/components/schemas/Photograph"
                   total:
                     type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createPhotograph
       summary: Log a photograph
@@ -893,6 +940,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Photograph"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/photographs/{id}:
     parameters:
@@ -920,54 +969,70 @@ paths:
               type: object
               properties:
                 roll_id:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 camera_id:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 lens_id:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 film_id:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 frame_number:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 taken_at:
-                  type: string
+                  type:
+                    - string
+                    - "null"
                   format: date-time
-                  nullable: true
                 aperture:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 shutter_speed:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 iso:
-                  type: integer
-                  nullable: true
+                  type:
+                    - integer
+                    - "null"
                 exposure_compensation:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
                 focal_length_mm:
-                  type: number
-                  nullable: true
+                  type:
+                    - number
+                    - "null"
                 latitude:
-                  type: number
-                  nullable: true
+                  type:
+                    - number
+                    - "null"
                 longitude:
-                  type: number
-                  nullable: true
+                  type:
+                    - number
+                    - "null"
                 altitude_m:
-                  type: number
-                  nullable: true
+                  type:
+                    - number
+                    - "null"
                 gps_accuracy_m:
-                  type: number
-                  nullable: true
+                  type:
+                    - number
+                    - "null"
                 notes:
-                  type: string
-                  nullable: true
+                  type:
+                    - string
+                    - "null"
       responses:
         "200":
           description: Updated photograph
@@ -1036,11 +1101,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "503":
-          description: R2 not yet enabled
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/photographs/{id}/images/{image_id}:
     parameters:

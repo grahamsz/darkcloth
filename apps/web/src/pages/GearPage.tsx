@@ -4,10 +4,6 @@ import type { Camera, Lens, FilmStock, Roll } from "../api/client";
 
 type Section = "cameras" | "lenses" | "films" | "rolls";
 
-interface GearPageProps {
-  section: Section;
-}
-
 function CamerasSection() {
   const [items, setItems] = useState<Camera[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,21 +13,25 @@ function CamerasSection() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listCameras()
-      .then(r => setItems(r.cameras))
-      .finally(() => setLoading(false));
+    api.listCameras().then(r => setItems(r.items)).finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setAdding(true);
     try {
-      const { camera } = await api.createCamera({ name, maker: maker || null });
+      const camera = await api.createCamera({ name, maker: maker || undefined });
       setItems(c => [...c, camera]);
       setName(""); setMaker(""); setShowForm(false);
     } finally {
       setAdding(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this camera?")) return;
+    await api.deleteCamera(id);
+    setItems(c => c.filter(x => x.id !== id));
   };
 
   return (
@@ -56,6 +56,7 @@ function CamerasSection() {
           <li key={c.id} className="gear-row">
             <span className="gear-name">{c.name}</span>
             {c.maker && <span className="gear-meta">{c.maker}</span>}
+            <button className="gear-delete" onClick={() => handleDelete(c.id)} aria-label="Delete">×</button>
           </li>
         ))}
       </ul>
@@ -73,25 +74,29 @@ function LensesSection() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listLenses()
-      .then(r => setItems(r.lenses))
-      .finally(() => setLoading(false));
+    api.listLenses().then(r => setItems(r.items)).finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setAdding(true);
     try {
-      const { lens } = await api.createLens({
+      const lens = await api.createLens({
         name,
-        focal_length_mm: focalLength ? parseFloat(focalLength) : null,
-        max_aperture: maxAperture || null,
+        focal_length_mm: focalLength ? parseFloat(focalLength) : undefined,
+        max_aperture: maxAperture || undefined,
       });
       setItems(l => [...l, lens]);
       setName(""); setFocalLength(""); setMaxAperture(""); setShowForm(false);
     } finally {
       setAdding(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this lens?")) return;
+    await api.deleteLens(id);
+    setItems(l => l.filter(x => x.id !== id));
   };
 
   return (
@@ -105,7 +110,7 @@ function LensesSection() {
       {showForm && (
         <form onSubmit={handleAdd} className="inline-form">
           <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
-          <input placeholder="Focal length (mm)" type="number" value={focalLength} onChange={e => setFocalLength(e.target.value)} />
+          <input placeholder="Focal length mm" type="number" value={focalLength} onChange={e => setFocalLength(e.target.value)} />
           <input placeholder="Max aperture" value={maxAperture} onChange={e => setMaxAperture(e.target.value)} />
           <button type="submit" disabled={adding}>{adding ? "Adding…" : "Add"}</button>
         </form>
@@ -120,6 +125,7 @@ function LensesSection() {
               {[l.focal_length_mm != null ? `${l.focal_length_mm}mm` : null, l.max_aperture]
                 .filter(Boolean).join(" · ")}
             </span>
+            <button className="gear-delete" onClick={() => handleDelete(l.id)} aria-label="Delete">×</button>
           </li>
         ))}
       </ul>
@@ -137,25 +143,29 @@ function FilmsSection() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listFilms()
-      .then(r => setItems(r.films))
-      .finally(() => setLoading(false));
+    api.listFilms().then(r => setItems(r.items)).finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setAdding(true);
     try {
-      const { film } = await api.createFilm({
+      const film = await api.createFilm({
         name,
-        iso: iso ? parseInt(iso, 10) : null,
-        process: process || null,
+        iso: iso ? parseInt(iso, 10) : undefined,
+        process: process || undefined,
       });
       setItems(f => [...f, film]);
       setName(""); setIso(""); setProcess(""); setShowForm(false);
     } finally {
       setAdding(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this film stock?")) return;
+    await api.deleteFilm(id);
+    setItems(f => f.filter(x => x.id !== id));
   };
 
   return (
@@ -183,6 +193,7 @@ function FilmsSection() {
             <span className="gear-meta">
               {[f.iso != null ? `ISO ${f.iso}` : null, f.process].filter(Boolean).join(" · ")}
             </span>
+            <button className="gear-delete" onClick={() => handleDelete(f.id)} aria-label="Delete">×</button>
           </li>
         ))}
       </ul>
@@ -198,21 +209,30 @@ function RollsSection() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listRolls()
-      .then(r => setItems(r.rolls))
-      .finally(() => setLoading(false));
+    api.listRolls().then(r => setItems(r.items)).finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setAdding(true);
     try {
-      const { roll } = await api.createRoll({ name });
+      const roll = await api.createRoll({ name });
       setItems(r => [...r, roll]);
       setName(""); setShowForm(false);
     } finally {
       setAdding(false);
     }
+  };
+
+  const markDeveloped = async (roll: Roll) => {
+    const updated = await api.updateRoll(roll.id, { developed_at: new Date().toISOString() });
+    setItems(rs => rs.map(r => r.id === roll.id ? updated : r));
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this roll?")) return;
+    await api.deleteRoll(id);
+    setItems(r => r.filter(x => x.id !== id));
   };
 
   return (
@@ -235,9 +255,13 @@ function RollsSection() {
         {items.map(r => (
           <li key={r.id} className="gear-row">
             <span className="gear-name">{r.name}</span>
-            <span className="gear-meta">
+            <span className={`gear-status gear-status--${r.developed_at ? "done" : r.loaded_at ? "active" : "idle"}`}>
               {r.developed_at ? "Developed" : r.loaded_at ? "Loaded" : "Not loaded"}
             </span>
+            {!r.developed_at && r.loaded_at && (
+              <button className="link-btn" onClick={() => markDeveloped(r)}>Mark developed</button>
+            )}
+            <button className="gear-delete" onClick={() => handleDelete(r.id)} aria-label="Delete">×</button>
           </li>
         ))}
       </ul>
@@ -245,7 +269,7 @@ function RollsSection() {
   );
 }
 
-export function GearPage({ section }: GearPageProps) {
+export function GearPage({ section }: { section: Section }) {
   return (
     <div className="page">
       {section === "cameras" && <CamerasSection />}
