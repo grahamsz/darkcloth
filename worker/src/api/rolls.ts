@@ -16,12 +16,16 @@ function paginate(query: Record<string, string>) {
 
 rolls.get("/", async (c) => {
   const userId = getUserId(c);
-  const { limit, offset } = paginate(c.req.query());
+  const query = c.req.query();
+  const { limit, offset } = paginate(query);
+  const { film_id } = query;
+  const where = film_id ? "user_id = ? AND film_id = ?" : "user_id = ?";
+  const baseBinds = film_id ? [userId, film_id] : [userId];
   const [rows, count] = await Promise.all([
-    c.env.DB.prepare("SELECT * FROM rolls WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-      .bind(userId, limit, offset).all<Roll>(),
-    c.env.DB.prepare("SELECT COUNT(*) as total FROM rolls WHERE user_id = ?")
-      .bind(userId).first<{ total: number }>(),
+    c.env.DB.prepare(`SELECT * FROM rolls WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+      .bind(...baseBinds, limit, offset).all<Roll>(),
+    c.env.DB.prepare(`SELECT COUNT(*) as total FROM rolls WHERE ${where}`)
+      .bind(...baseBinds).first<{ total: number }>(),
   ]);
   return c.json({ items: rows.results, total: count?.total ?? 0 });
 });

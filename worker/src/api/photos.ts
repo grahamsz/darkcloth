@@ -22,12 +22,18 @@ const PHOTO_FIELDS = [
 
 photos.get("/", async (c) => {
   const userId = getUserId(c);
-  const { limit, offset } = paginate(c.req.query());
+  const query = c.req.query();
+  const { limit, offset } = paginate(query);
+  const FILTER_COLS = ["roll_id", "camera_id", "lens_id", "film_id"] as const;
+  const filters = FILTER_COLS.filter(k => query[k]);
+  const whereClauses = ["user_id = ?", ...filters.map(k => `${k} = ?`)];
+  const filterBinds = [userId, ...filters.map(k => query[k])];
+  const where = whereClauses.join(" AND ");
   const [rows, count] = await Promise.all([
-    c.env.DB.prepare("SELECT * FROM photographs WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-      .bind(userId, limit, offset).all<Photograph>(),
-    c.env.DB.prepare("SELECT COUNT(*) as total FROM photographs WHERE user_id = ?")
-      .bind(userId).first<{ total: number }>(),
+    c.env.DB.prepare(`SELECT * FROM photographs WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+      .bind(...filterBinds, limit, offset).all<Photograph>(),
+    c.env.DB.prepare(`SELECT COUNT(*) as total FROM photographs WHERE ${where}`)
+      .bind(...filterBinds).first<{ total: number }>(),
   ]);
   return c.json({ items: rows.results, total: count?.total ?? 0 });
 });
@@ -84,7 +90,7 @@ photos.get("/:id/images", async (c) => {
     .bind(c.req.param("id"), userId).first();
   if (!photo) return c.json({ error: "Not found" }, 404);
   const rows = await c.env.DB.prepare(
-    "SELECT * FROM photograph_images WHERE photograph_id = ? ORDER BY created_at ASC"
+    "SELECT id, photograph_id, content_type, width, height, original_filename, created_at FROM photograph_images WHERE photograph_id = ? ORDER BY created_at ASC"
   ).bind(c.req.param("id")).all<Omit<PhotographImage, "url">>();
   return c.json({ items: rows.results.map(img => ({ ...img, url: null })), total: rows.results.length });
 });
