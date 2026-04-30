@@ -1,6 +1,7 @@
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  JWT_SECRET: string;
 }
 
 const openApiContentTypes: Record<string, string> = {

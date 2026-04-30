@@ -23,3 +23,19 @@ wrangler deploy
 ```
 
 R2 creation currently requires enabling R2 in the Cloudflare dashboard first.
+
+## Secrets
+
+JWT signing requires a Worker secret. Set it before deploying:
+
+```sh
+wrangler secret put JWT_SECRET
+```
+
+For local development, create a `.dev.vars` file (not committed) in the project root:
+
+```ini
+JWT_SECRET=dev-secret-change-in-production
+```
+
+Wrangler reads `.dev.vars` automatically during `wrangler dev`.
