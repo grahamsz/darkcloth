@@ -203,22 +203,32 @@ function FilmsSection() {
 
 function RollsSection() {
   const [items, setItems] = useState<Roll[]>([]);
+  const [films, setFilms] = useState<FilmStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [filmId, setFilmId] = useState("");
+  const [loadedAt, setLoadedAt] = useState("");
   const [adding, setAdding] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listRolls().then(r => setItems(r.items)).finally(() => setLoading(false));
+    Promise.all([
+      api.listRolls().then(r => setItems(r.items)),
+      api.listFilms().then(r => setFilms(r.items)).catch(() => null),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     setAdding(true);
     try {
-      const roll = await api.createRoll({ name });
+      const roll = await api.createRoll({
+        name,
+        film_id: filmId || undefined,
+        loaded_at: loadedAt ? new Date(loadedAt).toISOString() : undefined,
+      });
       setItems(r => [...r, roll]);
-      setName(""); setShowForm(false);
+      setName(""); setFilmId(""); setLoadedAt(""); setShowForm(false);
     } finally {
       setAdding(false);
     }
@@ -246,24 +256,38 @@ function RollsSection() {
       {showForm && (
         <form onSubmit={handleAdd} className="inline-form">
           <input placeholder="Roll name" value={name} onChange={e => setName(e.target.value)} required />
+          <select value={filmId} onChange={e => setFilmId(e.target.value)}>
+            <option value="">No film</option>
+            {films.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <input
+            type="datetime-local"
+            title="Loaded at"
+            value={loadedAt}
+            onChange={e => setLoadedAt(e.target.value)}
+          />
           <button type="submit" disabled={adding}>{adding ? "Adding…" : "Add"}</button>
         </form>
       )}
       {loading && <p className="muted">Loading…</p>}
       {!loading && items.length === 0 && <p className="muted">No rolls yet.</p>}
       <ul className="gear-list">
-        {items.map(r => (
-          <li key={r.id} className="gear-row">
-            <span className="gear-name">{r.name}</span>
-            <span className={`gear-status gear-status--${r.developed_at ? "done" : r.loaded_at ? "active" : "idle"}`}>
-              {r.developed_at ? "Developed" : r.loaded_at ? "Loaded" : "Not loaded"}
-            </span>
-            {!r.developed_at && r.loaded_at && (
-              <button className="link-btn" onClick={() => markDeveloped(r)}>Mark developed</button>
-            )}
-            <button className="gear-delete" onClick={() => handleDelete(r.id)} aria-label="Delete">×</button>
-          </li>
-        ))}
+        {items.map(r => {
+          const filmName = r.film_id ? films.find(f => f.id === r.film_id)?.name : null;
+          return (
+            <li key={r.id} className="gear-row">
+              <span className="gear-name">{r.name}</span>
+              {filmName && <span className="gear-meta">{filmName}</span>}
+              <span className={`gear-status gear-status--${r.developed_at ? "done" : r.loaded_at ? "active" : "idle"}`}>
+                {r.developed_at ? "Developed" : r.loaded_at ? "Loaded" : "Not loaded"}
+              </span>
+              {!r.developed_at && r.loaded_at && (
+                <button className="link-btn" onClick={() => markDeveloped(r)}>Mark developed</button>
+              )}
+              <button className="gear-delete" onClick={() => handleDelete(r.id)} aria-label="Delete">×</button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

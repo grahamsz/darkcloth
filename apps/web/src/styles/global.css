@@ -479,18 +479,21 @@ legend {
   border-radius: 8px;
 }
 
-.inline-form input {
+.inline-form input,
+.inline-form select {
   height: 34px;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--paper);
+  color: var(--ink);
   font-size: 0.88rem;
   font-family: inherit;
   outline: none;
 }
 
-.inline-form input:focus { border-color: var(--accent); }
+.inline-form input:focus,
+.inline-form select:focus { border-color: var(--accent); }
 
 .inline-form button {
   height: 34px;

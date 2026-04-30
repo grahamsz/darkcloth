@@ -5,8 +5,11 @@ The public API is published from the Cloudflare Worker.
 - YAML: `https://phototracker.graha.ms/api/openapi.yaml`
 - JSON: `https://phototracker.graha.ms/api/openapi.json`
 - Health: `https://phototracker.graha.ms/api/health`
+- Documentation: `https://phototracker.graha.ms/developers`
 
 The canonical contract lives in `openapi/phototracker.v1.yaml`. Published asset copies live under `public/api/openapi.yaml` and `public/api/openapi.json`; the Worker serves those files at `/api/openapi.yaml` and `/api/openapi.json`.
+
+The `/developers` route serves an interactive documentation page powered by Redoc.
 
 The v1 contract covers:
 
@@ -60,7 +63,7 @@ All errors return `{ "error": "<message>" }` with appropriate HTTP status.
 [M0 Foundation — DONE]
   Worker + D1 schema + health endpoint deployed
 
-[M1 API Contract]
+[M1 API Contract — DONE]
   photo-jml: Expand OpenAPI v1 YAML for all endpoints
   → Unblocks all downstream implementation
 
