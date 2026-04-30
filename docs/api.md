@@ -49,9 +49,9 @@ Cameras, lenses, and film stocks live under `/api/gear/*` to keep the URL tree r
 
 ### Images (R2)
 
-Photograph images are stored in R2 as `{user_id}/{photograph_id}/{image_id}.{ext}`. The `PhotographImage` record in D1 stores the `r2_key` and metadata. Serving: presigned R2 URLs returned in the `url` field (short-lived, ~1 hour). Upload is multipart form to the Worker, which streams to R2.
+Photograph images are stored in R2 as `{user_id}/{photograph_id}/{image_id}.{ext}`. The `PhotographImage` record in D1 stores the `r2_key` and metadata. Upload is multipart form to the Worker, which streams the uploaded file to R2.
 
-While R2 is not yet enabled on the account, `POST /api/photographs/:id/images` returns 503. The stub must be implemented so the web and Android clients can build against the interface.
+Serving uses short-lived signed Worker URLs returned in the `url` field. The signed URL is valid for about 1 hour and streams the private R2 object from `/api/photographs/:id/images/:image_id/file`.
 
 ### Error Shape
 

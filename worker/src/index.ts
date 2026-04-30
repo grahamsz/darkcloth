@@ -9,6 +9,7 @@ import photos from "./api/photos";
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  REFERENCE_IMAGES: R2Bucket;
   JWT_SECRET: string;
 }
 

@@ -17,3 +17,7 @@ binding = "DB"
 database_name = "phototracker"
 database_id = "45e17b77-134b-47c8-8a6f-b0d4026d0159"
 migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "REFERENCE_IMAGES"
+bucket_name = "phototracker-reference-images"

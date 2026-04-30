@@ -303,8 +303,8 @@ components:
           type:
             - string
             - "null"
-          description: Presigned R2 URL (short-lived) — absent until R2 is enabled
-          example: "https://r2.example.com/presigned-url"
+          description: Signed download URL backed by R2 (short-lived, about 1 hour)
+          example: "https://phototracker.graha.ms/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?expires=1777540800&signature=abc123"
         created_at:
           type: string
           format: date-time
@@ -323,6 +323,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Signed URL is invalid or expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     NotFound:
       description: Resource not found
       content:
@@ -330,7 +336,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     ServiceUnavailable:
-      description: R2 not yet enabled
+      description: Image storage is unavailable
       content:
         application/json:
           schema:
@@ -1135,7 +1141,7 @@ paths:
       summary: Upload a reference image for a photograph
       description: |
         Upload a reference scan or contact print. Multipart form upload.
-        The `url` field in the response will be absent until R2 is enabled on the account.
+        The `url` field in the response is a short-lived signed download URL.
       requestBody:
         required: true
         content:
@@ -1154,6 +1160,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PhotographImage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/photographs/{id}/images/{image_id}/file:
+    parameters:
+      - $ref: "#/components/parameters/id"
+      - name: image_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: expires
+        in: query
+        required: true
+        schema:
+          type: integer
+      - name: signature
+        in: query
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: downloadPhotographImage
+      summary: Download an image
+      description: Signed URL target returned in `PhotographImage.url`.
+      security: []
+      responses:
+        "200":
+          description: Image bytes
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "503":
@@ -1175,3 +1221,5 @@ paths:
           description: Deleted
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
