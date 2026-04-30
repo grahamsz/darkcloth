@@ -7,22 +7,30 @@ type Section = "cameras" | "lenses" | "films" | "rolls";
 function CamerasSection() {
   const [items, setItems] = useState<Camera[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [maker, setMaker] = useState("");
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listCameras().then(r => setItems(r.items)).finally(() => setLoading(false));
+    api.listCameras()
+      .then(r => setItems(r.items))
+      .catch(e => setLoadError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
+    setAddError(null);
     setAdding(true);
     try {
       const camera = await api.createCamera({ name, maker: maker || undefined });
       setItems(c => [...c, camera]);
       setName(""); setMaker(""); setShowForm(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
     }
@@ -44,13 +52,15 @@ function CamerasSection() {
       </div>
       {showForm && (
         <form onSubmit={handleAdd} className="inline-form">
+          {addError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{addError}</p>}
           <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
           <input placeholder="Maker (optional)" value={maker} onChange={e => setMaker(e.target.value)} />
           <button type="submit" disabled={adding}>{adding ? "Adding…" : "Add"}</button>
         </form>
       )}
       {loading && <p className="muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="muted">No cameras yet.</p>}
+      {loadError && <p className="form-error">{loadError}</p>}
+      {!loading && !loadError && items.length === 0 && <p className="muted">No cameras yet.</p>}
       <ul className="gear-list">
         {items.map(c => (
           <li key={c.id} className="gear-row">
@@ -67,18 +77,24 @@ function CamerasSection() {
 function LensesSection() {
   const [items, setItems] = useState<Lens[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [focalLength, setFocalLength] = useState("");
   const [maxAperture, setMaxAperture] = useState("");
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listLenses().then(r => setItems(r.items)).finally(() => setLoading(false));
+    api.listLenses()
+      .then(r => setItems(r.items))
+      .catch(e => setLoadError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
+    setAddError(null);
     setAdding(true);
     try {
       const lens = await api.createLens({
@@ -88,6 +104,8 @@ function LensesSection() {
       });
       setItems(l => [...l, lens]);
       setName(""); setFocalLength(""); setMaxAperture(""); setShowForm(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
     }
@@ -109,6 +127,7 @@ function LensesSection() {
       </div>
       {showForm && (
         <form onSubmit={handleAdd} className="inline-form">
+          {addError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{addError}</p>}
           <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
           <input placeholder="Focal length mm" type="number" value={focalLength} onChange={e => setFocalLength(e.target.value)} />
           <input placeholder="Max aperture" value={maxAperture} onChange={e => setMaxAperture(e.target.value)} />
@@ -116,7 +135,8 @@ function LensesSection() {
         </form>
       )}
       {loading && <p className="muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="muted">No lenses yet.</p>}
+      {loadError && <p className="form-error">{loadError}</p>}
+      {!loading && !loadError && items.length === 0 && <p className="muted">No lenses yet.</p>}
       <ul className="gear-list">
         {items.map(l => (
           <li key={l.id} className="gear-row">
@@ -136,18 +156,24 @@ function LensesSection() {
 function FilmsSection() {
   const [items, setItems] = useState<FilmStock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [iso, setIso] = useState("");
   const [process, setProcess] = useState("");
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    api.listFilms().then(r => setItems(r.items)).finally(() => setLoading(false));
+    api.listFilms()
+      .then(r => setItems(r.items))
+      .catch(e => setLoadError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
+    setAddError(null);
     setAdding(true);
     try {
       const film = await api.createFilm({
@@ -157,6 +183,8 @@ function FilmsSection() {
       });
       setItems(f => [...f, film]);
       setName(""); setIso(""); setProcess(""); setShowForm(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
     }
@@ -178,6 +206,7 @@ function FilmsSection() {
       </div>
       {showForm && (
         <form onSubmit={handleAdd} className="inline-form">
+          {addError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{addError}</p>}
           <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
           <input placeholder="ISO" type="number" value={iso} onChange={e => setIso(e.target.value)} />
           <input placeholder="Process (C-41, E-6…)" value={process} onChange={e => setProcess(e.target.value)} />
@@ -185,7 +214,8 @@ function FilmsSection() {
         </form>
       )}
       {loading && <p className="muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="muted">No film stocks yet.</p>}
+      {loadError && <p className="form-error">{loadError}</p>}
+      {!loading && !loadError && items.length === 0 && <p className="muted">No film stocks yet.</p>}
       <ul className="gear-list">
         {items.map(f => (
           <li key={f.id} className="gear-row">
@@ -205,21 +235,30 @@ function RollsSection() {
   const [items, setItems] = useState<Roll[]>([]);
   const [films, setFilms] = useState<FilmStock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [filmId, setFilmId] = useState("");
   const [loadedAt, setLoadedAt] = useState("");
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      api.listRolls().then(r => setItems(r.items)),
-      api.listFilms().then(r => setFilms(r.items)).catch(() => null),
-    ]).finally(() => setLoading(false));
+      api.listRolls(),
+      api.listFilms().catch(() => ({ items: [] as FilmStock[] })),
+    ])
+      .then(([rollsRes, filmsRes]) => {
+        setItems(rollsRes.items);
+        setFilms(filmsRes.items);
+      })
+      .catch(e => setLoadError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
+    setAddError(null);
     setAdding(true);
     try {
       const roll = await api.createRoll({
@@ -229,6 +268,8 @@ function RollsSection() {
       });
       setItems(r => [...r, roll]);
       setName(""); setFilmId(""); setLoadedAt(""); setShowForm(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
     }
@@ -255,6 +296,7 @@ function RollsSection() {
       </div>
       {showForm && (
         <form onSubmit={handleAdd} className="inline-form">
+          {addError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{addError}</p>}
           <input placeholder="Roll name" value={name} onChange={e => setName(e.target.value)} required />
           <select value={filmId} onChange={e => setFilmId(e.target.value)}>
             <option value="">No film</option>
@@ -270,7 +312,8 @@ function RollsSection() {
         </form>
       )}
       {loading && <p className="muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="muted">No rolls yet.</p>}
+      {loadError && <p className="form-error">{loadError}</p>}
+      {!loading && !loadError && items.length === 0 && <p className="muted">No rolls yet.</p>}
       <ul className="gear-list">
         {items.map(r => {
           const filmName = r.film_id ? films.find(f => f.id === r.film_id)?.name : null;

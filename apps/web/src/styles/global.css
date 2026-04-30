@@ -609,6 +609,15 @@ li:last-child .gear-row { border-bottom: none; }
   font-variant-numeric: tabular-nums;
 }
 
+.photo-context {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .photo-date {
   color: var(--muted);
   font-size: 0.84rem;
