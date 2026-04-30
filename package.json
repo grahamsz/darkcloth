@@ -1,0 +1,16 @@
+{
+  "name": "phototracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "web:build": "npm run build --prefix apps/web",
+    "web:dev": "npm run dev --prefix apps/web",
+    "dev": "wrangler dev",
+    "deploy": "npm run web:build && wrangler deploy",
+    "types": "wrangler types",
+    "d1:migrations:apply": "wrangler d1 migrations apply phototracker"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

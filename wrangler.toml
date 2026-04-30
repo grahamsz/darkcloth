@@ -1,0 +1,19 @@
+name = "phototracker"
+main = "worker/src/index.ts"
+compatibility_date = "2026-04-29"
+
+[[routes]]
+pattern = "phototracker.graha.ms"
+custom_domain = true
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/developers/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "phototracker"
+database_id = "45e17b77-134b-47c8-8a6f-b0d4026d0159"
+migrations_dir = "migrations"
