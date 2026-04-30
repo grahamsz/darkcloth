@@ -104,6 +104,7 @@ function base64UrlEncode(buffer: ArrayBuffer) {
 }
 
 async function signImageUrl(secret: string, payload: string) {
+  const data = new TextEncoder().encode(payload);
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -111,7 +112,7 @@ async function signImageUrl(secret: string, payload: string) {
     false,
     ["sign"],
   );
-  return base64UrlEncode(await crypto.subtle.sign("HMAC", key, payload));
+  return base64UrlEncode(await crypto.subtle.sign("HMAC", key, data));
 }
 
 function constantTimeEqual(a: string, b: string) {
@@ -151,6 +152,39 @@ async function publicImage(c: PhotoContext, userId: string, image: StoredPhotogr
   };
 }
 
+async function publicImagesForPhotographs(c: PhotoContext, userId: string, photographIds: string[]) {
+  if (photographIds.length === 0) return new Map<string, PhotographImage[]>();
+
+  const placeholders = photographIds.map(() => "?").join(", ");
+  const rows = await c.env.DB.prepare(
+    `SELECT pi.id, pi.photograph_id, pi.r2_key, pi.content_type, pi.width, pi.height, pi.original_filename, pi.created_at
+     FROM photograph_images pi
+     JOIN photographs p ON p.id = pi.photograph_id
+     WHERE p.user_id = ? AND pi.photograph_id IN (${placeholders})
+     ORDER BY pi.created_at ASC`
+  ).bind(userId, ...photographIds).all<StoredPhotographImage>();
+
+  const grouped = new Map<string, PhotographImage[]>();
+  for (const photographId of photographIds) {
+    grouped.set(photographId, []);
+  }
+
+  const publicImages = await Promise.all(rows.results.map(image => publicImage(c, userId, image)));
+  for (const image of publicImages) {
+    grouped.get(image.photograph_id)?.push(image);
+  }
+
+  return grouped;
+}
+
+async function photographsWithImages(c: PhotoContext, userId: string, photos: Photograph[]) {
+  const imagesByPhotograph = await publicImagesForPhotographs(c, userId, photos.map(photo => photo.id));
+  return photos.map(photo => ({
+    ...photo,
+    images: imagesByPhotograph.get(photo.id) ?? [],
+  }));
+}
+
 async function deleteR2Keys(c: PhotoContext, keys: string[]) {
   if (keys.length === 0) return true;
   if (!c.env.REFERENCE_IMAGES) return false;
@@ -178,7 +212,8 @@ photos.get("/", async (c) => {
     c.env.DB.prepare(`SELECT COUNT(*) as total FROM photographs WHERE ${where}`)
       .bind(...filterBinds).first<{ total: number }>(),
   ]);
-  return c.json({ items: rows.results, total: count?.total ?? 0 });
+  const items = await photographsWithImages(c, userId, rows.results);
+  return c.json({ items, total: count?.total ?? 0 });
 });
 
 photos.post("/", async (c) => {
@@ -200,7 +235,8 @@ photos.get("/:id", async (c) => {
   const photo = await c.env.DB.prepare("SELECT * FROM photographs WHERE id = ? AND user_id = ?")
     .bind(c.req.param("id"), userId).first<Photograph>();
   if (!photo) return c.json({ error: "Not found" }, 404);
-  return c.json(photo);
+  const [item] = await photographsWithImages(c, userId, [photo]);
+  return c.json(item);
 });
 
 photos.patch("/:id", async (c) => {

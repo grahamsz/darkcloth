@@ -383,6 +383,13 @@
             "type": "string",
             "format": "date-time",
             "example": "2026-04-29T20:26:05Z"
+          },
+          "images": {
+            "type": "array",
+            "description": "Reference images attached to the photograph, each with a short-lived signed download URL.",
+            "items": {
+              "$ref": "#/components/schemas/PhotographImage"
+            }
           }
         }
       },
