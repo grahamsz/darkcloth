@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import type { Photo } from "../api/client";
+import type { Photograph } from "../api/client";
 
 export function PhotosPage() {
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<Photograph[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listPhotos()
-      .then(r => setPhotos(r.photographs))
+    api.listPhotographs()
+      .then(r => { setPhotos(r.items); setTotal(r.total); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -18,12 +19,15 @@ export function PhotosPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Photographs</h1>
+        <div>
+          <h1>Photographs</h1>
+          {!loading && total > 0 && <p className="page-count">{total} frame{total !== 1 ? "s" : ""}</p>}
+        </div>
         <Link className="btn-primary" to="/app/photos/new">Log photograph</Link>
       </div>
 
       {loading && <p className="muted">Loading…</p>}
-      {error && <p className="error">{error}</p>}
+      {error && <p className="form-error">{error}</p>}
 
       {!loading && !error && photos.length === 0 && (
         <div className="empty-state">
@@ -38,14 +42,13 @@ export function PhotosPage() {
             <li key={photo.id}>
               <Link to={`/app/photos/${photo.id}`} className="photo-row">
                 <span className="photo-frame">{photo.frame_number ?? "—"}</span>
-                <span className="photo-meta">
-                  {[photo.aperture, photo.shutter_speed].filter(Boolean).join(" · ") || "—"}
+                <span className="photo-exposure">
+                  {[photo.aperture, photo.shutter_speed].filter(Boolean).join(" · ") || <span className="muted">—</span>}
                 </span>
-                {photo.taken_at && (
-                  <time className="photo-date" dateTime={photo.taken_at}>
-                    {new Date(photo.taken_at).toLocaleDateString()}
-                  </time>
-                )}
+                {photo.iso && <span className="photo-iso">ISO {photo.iso}</span>}
+                <span className="photo-date">
+                  {photo.taken_at ? new Date(photo.taken_at).toLocaleDateString() : ""}
+                </span>
               </Link>
             </li>
           ))}

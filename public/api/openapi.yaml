@@ -51,9 +51,8 @@ components:
         name:
           type: string
         maker:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -70,13 +69,11 @@ components:
         name:
           type: string
         focal_length_mm:
-          type:
-            - number
-            - "null"
+          type: number
+          nullable: true
         max_aperture:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
           description: e.g. "f/1.4"
         created_at:
           type: string
@@ -94,13 +91,11 @@ components:
         name:
           type: string
         iso:
-          type:
-            - integer
-            - "null"
+          type: integer
+          nullable: true
         process:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
           description: e.g. "C-41", "E-6", "B&W"
         created_at:
           type: string
@@ -116,21 +111,18 @@ components:
         user_id:
           type: string
         film_id:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         name:
           type: string
         loaded_at:
-          type:
-            - string
-            - "null"
+          type: string
           format: date-time
+          nullable: true
         developed_at:
-          type:
-            - string
-            - "null"
+          type: string
           format: date-time
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -145,73 +137,57 @@ components:
         user_id:
           type: string
         roll_id:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         camera_id:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         lens_id:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         film_id:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         frame_number:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         taken_at:
-          type:
-            - string
-            - "null"
+          type: string
           format: date-time
+          nullable: true
         aperture:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
           description: e.g. "f/5.6"
         shutter_speed:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
           description: e.g. "1/250"
         iso:
-          type:
-            - integer
-            - "null"
+          type: integer
+          nullable: true
         exposure_compensation:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
           description: e.g. "+1", "-0.5"
         focal_length_mm:
-          type:
-            - number
-            - "null"
+          type: number
+          nullable: true
         latitude:
-          type:
-            - number
-            - "null"
+          type: number
+          nullable: true
         longitude:
-          type:
-            - number
-            - "null"
+          type: number
+          nullable: true
         altitude_m:
-          type:
-            - number
-            - "null"
+          type: number
+          nullable: true
         gps_accuracy_m:
-          type:
-            - number
-            - "null"
+          type: number
+          nullable: true
         notes:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -232,17 +208,14 @@ components:
           type: string
           description: MIME type, e.g. "image/jpeg"
         width:
-          type:
-            - integer
-            - "null"
+          type: integer
+          nullable: true
         height:
-          type:
-            - integer
-            - "null"
+          type: integer
+          nullable: true
         original_filename:
-          type:
-            - string
-            - "null"
+          type: string
+          nullable: true
         url:
           type: string
           description: Presigned R2 URL (short-lived) — absent until R2 is enabled
@@ -802,19 +775,16 @@ paths:
                 name:
                   type: string
                 film_id:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 loaded_at:
-                  type:
-                    - string
-                    - "null"
+                  type: string
                   format: date-time
+                  nullable: true
                 developed_at:
-                  type:
-                    - string
-                    - "null"
+                  type: string
                   format: date-time
+                  nullable: true
       responses:
         "200":
           description: Updated roll
@@ -950,70 +920,54 @@ paths:
               type: object
               properties:
                 roll_id:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 camera_id:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 lens_id:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 film_id:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 frame_number:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 taken_at:
-                  type:
-                    - string
-                    - "null"
+                  type: string
                   format: date-time
+                  nullable: true
                 aperture:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 shutter_speed:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 iso:
-                  type:
-                    - integer
-                    - "null"
+                  type: integer
+                  nullable: true
                 exposure_compensation:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
                 focal_length_mm:
-                  type:
-                    - number
-                    - "null"
+                  type: number
+                  nullable: true
                 latitude:
-                  type:
-                    - number
-                    - "null"
+                  type: number
+                  nullable: true
                 longitude:
-                  type:
-                    - number
-                    - "null"
+                  type: number
+                  nullable: true
                 altitude_m:
-                  type:
-                    - number
-                    - "null"
+                  type: number
+                  nullable: true
                 gps_accuracy_m:
-                  type:
-                    - number
-                    - "null"
+                  type: number
+                  nullable: true
                 notes:
-                  type:
-                    - string
-                    - "null"
+                  type: string
+                  nullable: true
       responses:
         "200":
           description: Updated photograph

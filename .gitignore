@@ -7,3 +7,16 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Wrangler
+.wrangler/
+.dev.vars
+
+# Runtime
+.runtime/
+.gc/

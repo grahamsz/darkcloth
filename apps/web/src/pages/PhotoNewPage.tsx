@@ -3,44 +3,57 @@ import { useNavigate, Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Camera, Lens, FilmStock, Roll } from "../api/client";
 
+interface FormState {
+  camera_id: string;
+  lens_id: string;
+  film_id: string;
+  roll_id: string;
+  frame_number: string;
+  taken_at: string;
+  aperture: string;
+  shutter_speed: string;
+  iso: string;
+  exposure_compensation: string;
+  focal_length_mm: string;
+  latitude: string;
+  longitude: string;
+  altitude_m: string;
+  gps_accuracy_m: string;
+  notes: string;
+}
+
+const EMPTY: FormState = {
+  camera_id: "", lens_id: "", film_id: "", roll_id: "",
+  frame_number: "", taken_at: "", aperture: "", shutter_speed: "",
+  iso: "", exposure_compensation: "", focal_length_mm: "",
+  latitude: "", longitude: "", altitude_m: "", gps_accuracy_m: "", notes: "",
+};
+
+const NUM_FIELDS = new Set(["iso", "focal_length_mm", "latitude", "longitude", "altitude_m", "gps_accuracy_m"]);
+
 export function PhotoNewPage() {
   const navigate = useNavigate();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [films, setFilms] = useState<FilmStock[]>([]);
   const [rolls, setRolls] = useState<Roll[]>([]);
-
-  const [form, setForm] = useState({
-    camera_id: "",
-    lens_id: "",
-    film_id: "",
-    roll_id: "",
-    frame_number: "",
-    taken_at: "",
-    aperture: "",
-    shutter_speed: "",
-    iso: "",
-    exposure_compensation: "",
-    focal_length_mm: "",
-    latitude: "",
-    longitude: "",
-    notes: "",
-  });
-
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      api.listCameras().then(r => setCameras(r.cameras)).catch(() => null),
-      api.listLenses().then(r => setLenses(r.lenses)).catch(() => null),
-      api.listFilms().then(r => setFilms(r.films)).catch(() => null),
-      api.listRolls().then(r => setRolls(r.rolls)).catch(() => null),
+      api.listCameras().then(r => setCameras(r.items)).catch(() => null),
+      api.listLenses().then(r => setLenses(r.items)).catch(() => null),
+      api.listFilms().then(r => setFilms(r.items)).catch(() => null),
+      api.listRolls().then(r => setRolls(r.items)).catch(() => null),
     ]);
   }, []);
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm(f => ({ ...f, [key]: e.target.value }));
+  const set =
+    (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+      setForm(f => ({ ...f, [key]: e.target.value }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -50,14 +63,10 @@ export function PhotoNewPage() {
       const payload: Record<string, string | number | null> = {};
       for (const [k, v] of Object.entries(form)) {
         if (v === "") continue;
-        if (k === "iso" || k === "focal_length_mm" || k === "latitude" || k === "longitude") {
-          payload[k] = parseFloat(v);
-        } else {
-          payload[k] = v;
-        }
+        payload[k] = NUM_FIELDS.has(k) ? parseFloat(v as string) : v;
       }
-      const { photograph } = await api.createPhoto(payload);
-      navigate(`/app/photos/${photograph.id}`, { replace: true });
+      const photo = await api.createPhotograph(payload);
+      navigate(`/app/photos/${photo.id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -135,7 +144,7 @@ export function PhotoNewPage() {
               <input id="iso" type="number" value={form.iso} onChange={set("iso")} placeholder="400" />
             </div>
             <div className="field field-sm">
-              <label htmlFor="exposure_compensation">EV</label>
+              <label htmlFor="exposure_compensation">EV comp</label>
               <input id="exposure_compensation" value={form.exposure_compensation} onChange={set("exposure_compensation")} placeholder="+1" />
             </div>
             <div className="field field-sm">
@@ -143,7 +152,7 @@ export function PhotoNewPage() {
               <input id="focal_length_mm" type="number" value={form.focal_length_mm} onChange={set("focal_length_mm")} placeholder="50" />
             </div>
           </div>
-          <div className="field field-sm">
+          <div className="field field-sm" style={{ marginTop: 12 }}>
             <label htmlFor="taken_at">Date &amp; time</label>
             <input id="taken_at" type="datetime-local" value={form.taken_at} onChange={set("taken_at")} />
           </div>
@@ -159,6 +168,14 @@ export function PhotoNewPage() {
             <div className="field">
               <label htmlFor="longitude">Longitude</label>
               <input id="longitude" type="number" step="any" value={form.longitude} onChange={set("longitude")} placeholder="-111.8910" />
+            </div>
+            <div className="field field-sm">
+              <label htmlFor="altitude_m">Altitude (m)</label>
+              <input id="altitude_m" type="number" step="any" value={form.altitude_m} onChange={set("altitude_m")} />
+            </div>
+            <div className="field field-sm">
+              <label htmlFor="gps_accuracy_m">Accuracy (m)</label>
+              <input id="gps_accuracy_m" type="number" step="any" value={form.gps_accuracy_m} onChange={set("gps_accuracy_m")} />
             </div>
           </div>
         </fieldset>

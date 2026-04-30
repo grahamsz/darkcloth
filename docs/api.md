@@ -6,7 +6,15 @@ The public API is published from the Cloudflare Worker.
 - JSON: `https://phototracker.graha.ms/api/openapi.json`
 - Health: `https://phototracker.graha.ms/api/health`
 
-The full contract lives in `openapi/phototracker.v1.yaml` and is served verbatim at `/api/openapi.yaml`. The Worker must serve this file rather than a hardcoded inline string once it grows beyond the health endpoint.
+The canonical contract lives in `openapi/phototracker.v1.yaml`. Published asset copies live under `public/api/openapi.yaml` and `public/api/openapi.json`; the Worker serves those files at `/api/openapi.yaml` and `/api/openapi.json`.
+
+The v1 contract covers:
+
+- Auth: register, login, and current-user validation
+- Gear: cameras, lenses, and film stocks
+- Rolls: roll listing, creation, detail, update, and deletion
+- Photographs: photograph listing, creation, detail, update, and deletion
+- Images: photograph image listing, upload stub, and deletion
 
 ## Architecture Decisions
 
@@ -17,6 +25,8 @@ Email/password auth with JWT Bearer tokens. No OAuth or magic links in v1 — th
 - `POST /api/auth/register` — create account, returns token + user
 - `POST /api/auth/login` — sign in, returns token + user
 - `GET /api/auth/me` — validate token, returns user
+
+See `docs/auth.md` for client-facing authentication details.
 
 JWT signing key stored as a Cloudflare Worker secret (`JWT_SECRET`). Tokens are stateless — no revocation list in v1.
 

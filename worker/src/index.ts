@@ -3,30 +3,10 @@ export interface Env {
   DB: D1Database;
 }
 
-const openApiYaml = `openapi: 3.1.0
-info:
-  title: Phototracker API
-  version: 0.1.0
-servers:
-  - url: https://phototracker.graha.ms
-paths:
-  /api/health:
-    get:
-      operationId: getHealth
-      summary: Health check
-      responses:
-        "200":
-          description: Worker is reachable
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  service:
-                    type: string
-`;
+const openApiContentTypes: Record<string, string> = {
+  "/api/openapi.yaml": "application/yaml; charset=utf-8",
+  "/api/openapi.json": "application/json; charset=utf-8",
+};
 
 function json(data: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -38,12 +18,21 @@ function json(data: unknown, init: ResponseInit = {}) {
   });
 }
 
-function text(body: string, contentType: string) {
-  return new Response(body, {
-    headers: {
-      "content-type": contentType,
-      "cache-control": "public, max-age=300",
-    },
+async function openApiAsset(request: Request, env: Env, contentType: string) {
+  const response = await env.ASSETS.fetch(request);
+
+  if (!response.ok) {
+    return json({ error: "OpenAPI asset not found" }, { status: 500 });
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("content-type", contentType);
+  headers.set("cache-control", "public, max-age=300");
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
   });
 }
 
@@ -59,32 +48,9 @@ export default {
       });
     }
 
-    if (url.pathname === "/api/openapi.yaml") {
-      return text(openApiYaml, "application/yaml; charset=utf-8");
-    }
-
-    if (url.pathname === "/api/openapi.json") {
-      return json({
-        openapi: "3.1.0",
-        info: {
-          title: "Phototracker API",
-          version: "0.1.0",
-        },
-        servers: [{ url: "https://phototracker.graha.ms" }],
-        paths: {
-          "/api/health": {
-            get: {
-              operationId: "getHealth",
-              summary: "Health check",
-              responses: {
-                "200": {
-                  description: "Worker is reachable",
-                },
-              },
-            },
-          },
-        },
-      });
+    const openApiContentType = openApiContentTypes[url.pathname];
+    if (openApiContentType) {
+      return openApiAsset(request, env, openApiContentType);
     }
 
     if (url.pathname === "/developers" || url.pathname === "/developers/api") {
