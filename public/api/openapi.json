@@ -44,19 +44,23 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "email": {
             "type": "string",
-            "format": "email"
+            "format": "email",
+            "example": "user@example.com"
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           },
           "updated_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       },
@@ -71,23 +75,28 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "user_id": {
-            "type": "string"
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "example": "Leica M6"
           },
           "maker": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "Leica"
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       },
@@ -102,30 +111,36 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "user_id": {
-            "type": "string"
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "example": "Summicron-M 35mm f/2 ASPH"
           },
           "focal_length_mm": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "example": 35
           },
           "max_aperture": {
             "type": [
               "string",
               "null"
             ],
-            "description": "e.g. \"f/1.4\""
+            "description": "e.g. \"f/1.4\"",
+            "example": "f/2"
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       },
@@ -140,30 +155,36 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "user_id": {
-            "type": "string"
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "example": "Kodak Portra 400"
           },
           "iso": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "example": 400
           },
           "process": {
             "type": [
               "string",
               "null"
             ],
-            "description": "e.g. \"C-41\", \"E-6\", \"B&W\""
+            "description": "e.g. \"C-41\", \"E-6\", \"B&W\"",
+            "example": "C-41"
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       },
@@ -178,37 +199,44 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "user_id": {
-            "type": "string"
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "film_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "example": "Portra 400 #1"
           },
           "loaded_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           },
           "developed_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date-time"
+            "format": "date-time",
+            "example": null
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       },
@@ -223,118 +251,138 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "user_id": {
-            "type": "string"
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "roll_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "camera_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "lens_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "film_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "frame_number": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "12"
           },
           "taken_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           },
           "aperture": {
             "type": [
               "string",
               "null"
             ],
-            "description": "e.g. \"f/5.6\""
+            "description": "e.g. \"f/5.6\"",
+            "example": "f/8"
           },
           "shutter_speed": {
             "type": [
               "string",
               "null"
             ],
-            "description": "e.g. \"1/250\""
+            "description": "e.g. \"1/250\"",
+            "example": "1/500"
           },
           "iso": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "example": 400
           },
           "exposure_compensation": {
             "type": [
               "string",
               "null"
             ],
-            "description": "e.g. \"+1\", \"-0.5\""
+            "description": "e.g. \"+1\", \"-0.5\"",
+            "example": "+1/3"
           },
           "focal_length_mm": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "example": 35
           },
           "latitude": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "example": 45.523062
           },
           "longitude": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "example": -122.676482
           },
           "altitude_m": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "example": 15
           },
           "gps_accuracy_m": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "example": 5
           },
           "notes": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "Shot at sunset."
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           },
           "updated_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       },
@@ -349,43 +397,51 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ULID"
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "photograph_id": {
-            "type": "string"
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "content_type": {
             "type": "string",
-            "description": "MIME type, e.g. \"image/jpeg\""
+            "description": "MIME type, e.g. \"image/jpeg\"",
+            "example": "image/jpeg"
           },
           "width": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "example": 3000
           },
           "height": {
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "example": 2000
           },
           "original_filename": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "example": "IMG_1234.JPG"
           },
           "url": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Presigned R2 URL (short-lived) — absent until R2 is enabled"
+            "description": "Presigned R2 URL (short-lived) — absent until R2 is enabled",
+            "example": "https://r2.example.com/presigned-url"
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
           }
         }
       }
