@@ -31,6 +31,7 @@ export function App() {
               <Route path="/app/lenses" element={<GearPage section="lenses" />} />
               <Route path="/app/films" element={<GearPage section="films" />} />
               <Route path="/app/rolls" element={<GearPage section="rolls" />} />
+              <Route path="/app/film-holders" element={<GearPage section="film_holders" />} />
             </Route>
           </Route>
 

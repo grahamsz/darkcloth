@@ -1,12 +1,13 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { api } from "../api/client";
-import type { Camera, Lens, FilmStock, Roll } from "../api/client";
+import type { Camera, Lens, FilmStock, Roll, FilmHolder } from "../api/client";
 
 interface FormState {
   camera_id: string;
   lens_id: string;
   film_id: string;
+  film_holder_id: string;
   roll_id: string;
   frame_number: string;
   taken_at: string;
@@ -23,7 +24,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  camera_id: "", lens_id: "", film_id: "", roll_id: "",
+  camera_id: "", lens_id: "", film_id: "", film_holder_id: "", roll_id: "",
   frame_number: "", taken_at: "", aperture: "", shutter_speed: "",
   iso: "", exposure_compensation: "", focal_length_mm: "",
   latitude: "", longitude: "", altitude_m: "", gps_accuracy_m: "", notes: "",
@@ -36,6 +37,7 @@ export function PhotoNewPage() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [films, setFilms] = useState<FilmStock[]>([]);
+  const [filmHolders, setFilmHolders] = useState<FilmHolder[]>([]);
   const [rolls, setRolls] = useState<Roll[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,7 @@ export function PhotoNewPage() {
       api.listCameras().then(r => setCameras(r.items)).catch(() => null),
       api.listLenses().then(r => setLenses(r.items)).catch(() => null),
       api.listFilms().then(r => setFilms(r.items)).catch(() => null),
+      api.listFilmHolders().then(r => setFilmHolders(r.items)).catch(() => null),
       api.listRolls().then(r => setRolls(r.items)).catch(() => null),
     ]);
   }, []);
@@ -125,6 +128,15 @@ export function PhotoNewPage() {
                 {films.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
             </div>
+            {filmHolders.length > 0 && (
+              <div className="field">
+                <label htmlFor="film_holder_id">Film holder</label>
+                <select id="film_holder_id" value={form.film_holder_id} onChange={set("film_holder_id")}>
+                  <option value="">None</option>
+                  {filmHolders.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         </fieldset>
 

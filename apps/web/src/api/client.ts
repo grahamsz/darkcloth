@@ -52,6 +52,8 @@ export interface Camera {
   user_id: string;
   name: string;
   maker: string | null;
+  film_type: 'sheet' | 'roll' | null;
+  film_holders_id: string | null;
   created_at: string;
 }
 
@@ -83,6 +85,18 @@ export interface Roll {
   created_at: string;
 }
 
+export interface FilmHolder {
+  id: string;
+  user_id: string;
+  name: string;
+  type: string;
+  width_mm: number | null;
+  height_mm: number | null;
+  brand: string | null;
+  capacity: number | null;
+  created_at: string;
+}
+
 export interface Photograph {
   id: string;
   user_id: string;
@@ -102,6 +116,7 @@ export interface Photograph {
   altitude_m: number | null;
   gps_accuracy_m: number | null;
   notes: string | null;
+  film_holder_id: string | null;
   created_at: string;
   updated_at: string;
   images?: { items: PhotographImage[] };
@@ -143,12 +158,22 @@ export const api = {
 
   // Gear — cameras
   listCameras: () => request<ListResponse<Camera>>("/gear/cameras"),
-  createCamera: (data: { name: string; maker?: string }) =>
+  createCamera: (data: { name: string; maker?: string; film_type?: 'sheet' | 'roll'; film_holders_id?: string }) =>
     request<Camera>("/gear/cameras", { method: "POST", body: JSON.stringify(data) }),
-  updateCamera: (id: string, data: { name?: string; maker?: string }) =>
+  updateCamera: (id: string, data: { name?: string; maker?: string; film_type?: 'sheet' | 'roll'; film_holders_id?: string }) =>
     request<Camera>(`/gear/cameras/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCamera: (id: string) =>
     request<void>(`/gear/cameras/${id}`, { method: "DELETE" }),
+
+  // Gear — film holders
+  listFilmHolders: () => request<ListResponse<FilmHolder>>("/gear/film_holders"),
+  createFilmHolder: (data: { name: string; type?: string; width_mm?: number; height_mm?: number; brand?: string; capacity?: number }) =>
+    request<FilmHolder>("/gear/film_holders", { method: "POST", body: JSON.stringify(data) }),
+  getFilmHolder: (id: string) => request<FilmHolder>(`/gear/film_holders/${id}`),
+  updateFilmHolder: (id: string, data: { name?: string; type?: string; width_mm?: number; height_mm?: number; brand?: string; capacity?: number }) =>
+    request<FilmHolder>(`/gear/film_holders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteFilmHolder: (id: string) =>
+    request<void>(`/gear/film_holders/${id}`, { method: "DELETE" }),
 
   // Gear — lenses
   listLenses: () => request<ListResponse<Lens>>("/gear/lenses"),
@@ -181,7 +206,7 @@ export const api = {
     request<void>(`/rolls/${id}`, { method: "DELETE" }),
 
   // Photographs
-  listPhotographs: (params?: { roll_id?: string; camera_id?: string; lens_id?: string; film_id?: string }) => {
+  listPhotographs: (params?: { roll_id?: string; camera_id?: string; lens_id?: string; film_id?: string; film_holder_id?: string }) => {
     const p = new URLSearchParams();
     if (params) {
       for (const [k, v] of Object.entries(params)) {

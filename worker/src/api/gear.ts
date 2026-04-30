@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { ulid } from "ulid";
 import { Env } from "../index";
-import { Camera, Lens, FilmStock } from "../types";
+import { Camera, Lens, FilmStock, FilmHolder } from "../types";
 import { authMiddleware, getUserId } from "./middleware";
 
 const gear = new Hono<{ Bindings: Env }>();
@@ -30,14 +30,14 @@ gear.get("/cameras", async (c) => {
 
 gear.post("/cameras", async (c) => {
   const userId = getUserId(c);
-  const { name, maker } = await c.req.json();
+  const { name, maker, film_type, film_holders_id } = await c.req.json();
   if (!name) return c.json({ error: "name is required" }, 400);
   const id = ulid();
   const now = new Date().toISOString();
   await c.env.DB.prepare(
-    "INSERT INTO cameras (id, user_id, name, maker, created_at) VALUES (?, ?, ?, ?, ?)"
-  ).bind(id, userId, name, maker ?? null, now).run();
-  const camera: Camera = { id, user_id: userId, name, maker: maker ?? null, created_at: now };
+    "INSERT INTO cameras (id, user_id, name, maker, film_type, film_holders_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).bind(id, userId, name, maker ?? null, film_type ?? null, film_holders_id ?? null, now).run();
+  const camera: Camera = { id, user_id: userId, name, maker: maker ?? null, film_type: film_type ?? null, film_holders_id: film_holders_id ?? null, created_at: now };
   return c.json(camera, 201);
 });
 
@@ -52,7 +52,7 @@ gear.get("/cameras/:id", async (c) => {
 gear.patch("/cameras/:id", async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
-  const fields = Object.entries(body).filter(([k]) => ["name", "maker"].includes(k));
+  const fields = Object.entries(body).filter(([k]) => ["name", "maker", "film_type", "film_holders_id"].includes(k));
   if (fields.length === 0) return c.json({ error: "No valid fields to update" }, 400);
   const set = fields.map(([k]) => `${k} = ?`).join(", ");
   const result = await c.env.DB.prepare(
@@ -65,6 +65,67 @@ gear.patch("/cameras/:id", async (c) => {
 gear.delete("/cameras/:id", async (c) => {
   const userId = getUserId(c);
   const result = await c.env.DB.prepare("DELETE FROM cameras WHERE id = ? AND user_id = ?")
+    .bind(c.req.param("id"), userId).run();
+  if (result.meta.changes === 0) return c.json({ error: "Not found" }, 404);
+  return new Response(null, { status: 204 });
+});
+
+// ─── Film Holders ─────────────────────────────────────────────────────────
+
+// List film holders
+gear.get("/film_holders", async (c) => {
+  const userId = getUserId(c);
+  const { limit, offset } = paginate(c.req.query());
+  const [rows, count] = await Promise.all([
+    c.env.DB.prepare("SELECT * FROM film_holders WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
+      .bind(userId, limit, offset).all<FilmHolder>(),
+    c.env.DB.prepare("SELECT COUNT(*) as total FROM film_holders WHERE user_id = ?")
+      .bind(userId).first<{ total: number }>(),
+  ]);
+  return c.json({ items: rows.results, total: count?.total ?? 0 });
+});
+
+// Create film holder
+gear.post("/film_holders", async (c) => {
+  const userId = getUserId(c);
+  const { name, type, width_mm, height_mm, brand, capacity } = await c.req.json();
+  if (!name) return c.json({ error: "name is required" }, 400);
+  const id = ulid();
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    "INSERT INTO film_holders (id, user_id, name, type, width_mm, height_mm, brand, capacity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(id, userId, name, type ?? null, width_mm ?? null, height_mm ?? null, brand ?? null, capacity ?? null, now).run();
+  const holder: FilmHolder = { id, user_id: userId, name, type: type ?? null, width_mm: width_mm ?? null, height_mm: height_mm ?? null, brand: brand ?? null, capacity: capacity ?? null, created_at: now };
+  return c.json(holder, 201);
+});
+
+// Get film holder
+gear.get("/film_holders/:id", async (c) => {
+  const userId = getUserId(c);
+  const holder = await c.env.DB.prepare("SELECT * FROM film_holders WHERE id = ? AND user_id = ?")
+    .bind(c.req.param("id"), userId).first<FilmHolder>();
+  if (!holder) return c.json({ error: "Not found" }, 404);
+  return c.json(holder);
+});
+
+// Update film holder
+gear.patch("/film_holders/:id", async (c) => {
+  const userId = getUserId(c);
+  const body = await c.req.json();
+  const fields = Object.entries(body).filter(([k]) => ["name", "type", "width_mm", "height_mm", "brand", "capacity"].includes(k));
+  if (fields.length === 0) return c.json({ error: "No valid fields to update" }, 400);
+  const set = fields.map(([k]) => `${k} = ?`).join(", ");
+  const result = await c.env.DB.prepare(
+    `UPDATE film_holders SET ${set} WHERE id = ? AND user_id = ?`
+  ).bind(...fields.map(([, v]) => v), c.req.param("id"), userId).run();
+  if (result.meta.changes === 0) return c.json({ error: "Not found" }, 404);
+  return c.json(await c.env.DB.prepare("SELECT * FROM film_holders WHERE id = ?").bind(c.req.param("id")).first<FilmHolder>());
+});
+
+// Delete film holder
+gear.delete("/film_holders/:id", async (c) => {
+  const userId = getUserId(c);
+  const result = await c.env.DB.prepare("DELETE FROM film_holders WHERE id = ? AND user_id = ?")
     .bind(c.req.param("id"), userId).run();
   if (result.meta.changes === 0) return c.json({ error: "Not found" }, 404);
   return new Response(null, { status: 204 });

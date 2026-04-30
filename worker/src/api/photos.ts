@@ -59,6 +59,7 @@ const PHOTO_FIELDS = [
   "roll_id", "camera_id", "lens_id", "film_id", "frame_number",
   "taken_at", "aperture", "shutter_speed", "iso", "exposure_compensation",
   "focal_length_mm", "latitude", "longitude", "altitude_m", "gps_accuracy_m", "notes",
+  "film_holder_id",
 ];
 
 function extensionFromFilename(filename: string | undefined) {
@@ -201,7 +202,7 @@ photos.get("/", async (c) => {
   const userId = getUserId(c);
   const query = c.req.query();
   const { limit, offset } = paginate(query);
-  const FILTER_COLS = ["roll_id", "camera_id", "lens_id", "film_id"] as const;
+  const FILTER_COLS = ["roll_id", "camera_id", "lens_id", "film_id", "film_holder_id"] as const;
   const filters = FILTER_COLS.filter(k => query[k]);
   const whereClauses = ["user_id = ?", ...filters.map(k => `${k} = ?`)];
   const filterBinds = [userId, ...filters.map(k => query[k])];

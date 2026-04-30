@@ -10,6 +10,8 @@ export interface Camera {
   user_id: string;
   name: string;
   maker: string | null;
+  film_type: 'sheet' | 'roll' | null;  // sheet for large format sheet film, roll for continuous film
+  film_holders_id: string | null;  // ID of linked film holder for sheet film cameras
   created_at: string;
 }
 
@@ -41,6 +43,18 @@ export interface Roll {
   created_at: string;
 }
 
+export interface FilmHolder {
+  id: string;
+  user_id: string;
+  name: string;
+  type: string;  // e.g., '127', '220', '4x5', '8x10'
+  width_mm: number | null;
+  height_mm: number | null;
+  brand: string | null;
+  capacity: number | null;  // number of sheets per pack
+  created_at: string;
+}
+
 export interface Photograph {
   id: string;
   user_id: string;
@@ -60,6 +74,7 @@ export interface Photograph {
   altitude_m: number | null;
   gps_accuracy_m: number | null;
   notes: string | null;
+  film_holder_id: string | null;  // For sheet film cameras, tracks which holder was used
   created_at: string;
   updated_at: string;
   images?: PhotographImage[];

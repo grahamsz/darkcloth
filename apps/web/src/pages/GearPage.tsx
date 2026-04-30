@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { Camera, Lens, FilmStock, Roll } from "../api/client";
+import type { Camera, Lens, FilmStock, Roll, FilmHolder } from "../api/client";
 
-type Section = "cameras" | "lenses" | "films" | "rolls";
+type Section = "cameras" | "lenses" | "films" | "rolls" | "film_holders";
 
 function CamerasSection() {
   const [items, setItems] = useState<Camera[]>([]);
@@ -336,6 +336,88 @@ function RollsSection() {
   );
 }
 
+function FilmHoldersSection() {
+  const [items, setItems] = useState<FilmHolder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [brand, setBrand] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    api.listFilmHolders()
+      .then(r => setItems(r.items))
+      .catch(e => setLoadError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAdd = async (e: FormEvent) => {
+    e.preventDefault();
+    setAddError(null);
+    setAdding(true);
+    try {
+      const holder = await api.createFilmHolder({
+        name,
+        type: type || undefined,
+        brand: brand || undefined,
+        capacity: capacity ? parseInt(capacity, 10) : undefined,
+      });
+      setItems(h => [...h, holder]);
+      setName(""); setType(""); setBrand(""); setCapacity(""); setShowForm(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to add");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this film holder?")) return;
+    await api.deleteFilmHolder(id);
+    setItems(h => h.filter(x => x.id !== id));
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Film holders</h1>
+        <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
+          {showForm ? "Cancel" : "Add film holder"}
+        </button>
+      </div>
+      {showForm && (
+        <form onSubmit={handleAdd} className="inline-form">
+          {addError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{addError}</p>}
+          <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
+          <input placeholder="Type (4x5, 8x10…)" value={type} onChange={e => setType(e.target.value)} />
+          <input placeholder="Brand (optional)" value={brand} onChange={e => setBrand(e.target.value)} />
+          <input placeholder="Capacity" type="number" value={capacity} onChange={e => setCapacity(e.target.value)} />
+          <button type="submit" disabled={adding}>{adding ? "Adding…" : "Add"}</button>
+        </form>
+      )}
+      {loading && <p className="muted">Loading…</p>}
+      {loadError && <p className="form-error">{loadError}</p>}
+      {!loading && !loadError && items.length === 0 && <p className="muted">No film holders yet.</p>}
+      <ul className="gear-list">
+        {items.map(h => (
+          <li key={h.id} className="gear-row">
+            <span className="gear-name">{h.name}</span>
+            <span className="gear-meta">
+              {[h.type, h.brand, h.capacity != null ? `${h.capacity} sheets` : null]
+                .filter(Boolean).join(" · ")}
+            </span>
+            <button className="gear-delete" onClick={() => handleDelete(h.id)} aria-label="Delete">×</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function GearPage({ section }: { section: Section }) {
   return (
     <div className="page">
@@ -343,6 +425,7 @@ export function GearPage({ section }: { section: Section }) {
       {section === "lenses" && <LensesSection />}
       {section === "films" && <FilmsSection />}
       {section === "rolls" && <RollsSection />}
+      {section === "film_holders" && <FilmHoldersSection />}
     </div>
   );
 }

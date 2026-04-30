@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import type { Photograph, PhotographImage, Camera, Lens, FilmStock, Roll } from "../api/client";
+import type { Photograph, PhotographImage, Camera, Lens, FilmStock, Roll, FilmHolder } from "../api/client";
 
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
   if (value == null || value === "") return null;
@@ -13,6 +13,7 @@ interface GearMaps {
   lenses: Map<string, Lens>;
   films: Map<string, FilmStock>;
   rolls: Map<string, Roll>;
+  filmHolders: Map<string, FilmHolder>;
 }
 
 export function PhotoDetailPage() {
@@ -20,7 +21,7 @@ export function PhotoDetailPage() {
   const navigate = useNavigate();
   const [photo, setPhoto] = useState<Photograph | null>(null);
   const [images, setImages] = useState<PhotographImage[]>([]);
-  const [gear, setGear] = useState<GearMaps>({ cameras: new Map(), lenses: new Map(), films: new Map(), rolls: new Map() });
+  const [gear, setGear] = useState<GearMaps>({ cameras: new Map(), lenses: new Map(), films: new Map(), rolls: new Map(), filmHolders: new Map() });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -35,8 +36,9 @@ export function PhotoDetailPage() {
       api.listLenses().catch(() => ({ items: [] })),
       api.listFilms().catch(() => ({ items: [] })),
       api.listRolls().catch(() => ({ items: [] })),
+      api.listFilmHolders().catch(() => ({ items: [] })),
     ])
-      .then(async ([p, imgs, cameras, lenses, films, rolls]) => {
+      .then(async ([p, imgs, cameras, lenses, films, rolls, filmHolders]) => {
         setPhoto(p);
         // Merge images from the enriched photo response with explicit list call
         const photoImages = p.images?.items ?? [];
@@ -47,6 +49,7 @@ export function PhotoDetailPage() {
           lenses: new Map(lenses.items.map(l => [l.id, l])),
           films: new Map(films.items.map(f => [f.id, f])),
           rolls: new Map(rolls.items.map(r => [r.id, r])),
+          filmHolders: new Map(filmHolders.items.map(h => [h.id, h])),
         });
       })
       .catch(e => setError(e.message))
@@ -99,6 +102,7 @@ export function PhotoDetailPage() {
         <Row label="Camera" value={photo.camera_id ? gear.cameras.get(photo.camera_id)?.name ?? photo.camera_id : null} />
         <Row label="Lens" value={photo.lens_id ? gear.lenses.get(photo.lens_id)?.name ?? photo.lens_id : null} />
         <Row label="Film" value={photo.film_id ? gear.films.get(photo.film_id)?.name ?? photo.film_id : null} />
+        <Row label="Film holder" value={photo.film_holder_id ? gear.filmHolders.get(photo.film_holder_id)?.name ?? photo.film_holder_id : null} />
         <Row label="Aperture" value={photo.aperture} />
         <Row label="Shutter" value={photo.shutter_speed} />
         <Row label="ISO" value={photo.iso} />

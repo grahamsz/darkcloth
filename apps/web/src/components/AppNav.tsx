@@ -13,6 +13,7 @@ export function AppNav() {
         <NavLink to="/app/cameras">Cameras</NavLink>
         <NavLink to="/app/lenses">Lenses</NavLink>
         <NavLink to="/app/films">Film</NavLink>
+        <NavLink to="/app/film-holders">Holders</NavLink>
       </div>
       <div className="app-nav-user">
         <span className="app-nav-email">{user?.email}</span>
