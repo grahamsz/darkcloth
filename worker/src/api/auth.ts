@@ -36,7 +36,8 @@ auth.post("/register", async (c) => {
       .run();
 
     const user: User = { id, email, created_at: now, updated_at: now };
-    const token = await sign({ sub: id, email }, c.env.JWT_SECRET);
+    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+    const token = await sign({ sub: id, email, exp }, c.env.JWT_SECRET);
 
     return c.json({ token, user }, 201);
   } catch (e: any) {
@@ -67,7 +68,8 @@ auth.post("/login", async (c) => {
     created_at: userRecord.created_at,
     updated_at: userRecord.updated_at,
   };
-  const token = await sign({ sub: user.id, email: user.email }, c.env.JWT_SECRET);
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+  const token = await sign({ sub: user.id, email: user.email, exp }, c.env.JWT_SECRET);
 
   return c.json({ token, user }, 200);
 });
