@@ -6,7 +6,7 @@
     "license": {
       "name": "Proprietary"
     },
-    "description": "API for tracking film photographs \u2014 cameras, lenses, film stocks, rolls, exposures, and reference images.\n"
+    "description": "API for tracking film photographs — cameras, lenses, film stocks, rolls, exposures, and reference images.\n"
   },
   "servers": [
     {
@@ -381,7 +381,7 @@
               "string",
               "null"
             ],
-            "description": "Presigned R2 URL (short-lived) \u2014 absent until R2 is enabled"
+            "description": "Presigned R2 URL (short-lived) — absent until R2 is enabled"
           },
           "created_at": {
             "type": "string",
