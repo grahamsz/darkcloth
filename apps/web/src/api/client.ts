@@ -104,6 +104,7 @@ export interface Photograph {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  images?: { items: PhotographImage[] };
 }
 
 export interface PhotographImage {

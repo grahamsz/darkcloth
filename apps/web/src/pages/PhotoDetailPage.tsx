@@ -36,9 +36,12 @@ export function PhotoDetailPage() {
       api.listFilms().catch(() => ({ items: [] })),
       api.listRolls().catch(() => ({ items: [] })),
     ])
-      .then(([p, imgs, cameras, lenses, films, rolls]) => {
+      .then(async ([p, imgs, cameras, lenses, films, rolls]) => {
         setPhoto(p);
-        setImages(imgs.items);
+        // Merge images from the enriched photo response with explicit list call
+        const photoImages = p.images?.items ?? [];
+        const allImages = [...photoImages, ...imgs.items];
+        setImages(allImages);
         setGear({
           cameras: new Map(cameras.items.map(c => [c.id, c])),
           lenses: new Map(lenses.items.map(l => [l.id, l])),
