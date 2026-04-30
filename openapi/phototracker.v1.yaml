@@ -1,0 +1,1034 @@
+openapi: 3.1.0
+info:
+  title: Phototracker API
+  version: 0.1.0
+  description: |
+    API for tracking film photographs — cameras, lenses, film stocks, rolls, exposures, and reference images.
+servers:
+  - url: https://phototracker.graha.ms
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    User:
+      type: object
+      required: [id, email, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Camera:
+      type: object
+      required: [id, user_id, name, created_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        user_id:
+          type: string
+        name:
+          type: string
+        maker:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Lens:
+      type: object
+      required: [id, user_id, name, created_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        user_id:
+          type: string
+        name:
+          type: string
+        focal_length_mm:
+          type: number
+          nullable: true
+        max_aperture:
+          type: string
+          nullable: true
+          description: e.g. "f/1.4"
+        created_at:
+          type: string
+          format: date-time
+
+    FilmStock:
+      type: object
+      required: [id, user_id, name, created_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        user_id:
+          type: string
+        name:
+          type: string
+        iso:
+          type: integer
+          nullable: true
+        process:
+          type: string
+          nullable: true
+          description: e.g. "C-41", "E-6", "B&W"
+        created_at:
+          type: string
+          format: date-time
+
+    Roll:
+      type: object
+      required: [id, user_id, name, created_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        user_id:
+          type: string
+        film_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+        loaded_at:
+          type: string
+          format: date-time
+          nullable: true
+        developed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Photograph:
+      type: object
+      required: [id, user_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        user_id:
+          type: string
+        roll_id:
+          type: string
+          nullable: true
+        camera_id:
+          type: string
+          nullable: true
+        lens_id:
+          type: string
+          nullable: true
+        film_id:
+          type: string
+          nullable: true
+        frame_number:
+          type: string
+          nullable: true
+        taken_at:
+          type: string
+          format: date-time
+          nullable: true
+        aperture:
+          type: string
+          nullable: true
+          description: e.g. "f/5.6"
+        shutter_speed:
+          type: string
+          nullable: true
+          description: e.g. "1/250"
+        iso:
+          type: integer
+          nullable: true
+        exposure_compensation:
+          type: string
+          nullable: true
+          description: e.g. "+1", "-0.5"
+        focal_length_mm:
+          type: number
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        altitude_m:
+          type: number
+          nullable: true
+        gps_accuracy_m:
+          type: number
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PhotographImage:
+      type: object
+      required: [id, photograph_id, content_type, created_at]
+      properties:
+        id:
+          type: string
+          description: ULID
+        photograph_id:
+          type: string
+        content_type:
+          type: string
+          description: MIME type, e.g. "image/jpeg"
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        original_filename:
+          type: string
+          nullable: true
+        url:
+          type: string
+          description: Presigned R2 URL (short-lived) — absent until R2 is enabled
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 200
+    offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Worker is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, service]
+                properties:
+                  ok:
+                    type: boolean
+                  service:
+                    type: string
+
+  # ── Auth ─────────────────────────────────────────────────────────────────────
+
+  /api/auth/register:
+    post:
+      operationId: register
+      summary: Create a new account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/login:
+    post:
+      operationId: login
+      summary: Sign in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/me:
+    get:
+      operationId: getMe
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Gear: Cameras ─────────────────────────────────────────────────────────────
+
+  /api/gear/cameras:
+    get:
+      operationId: listCameras
+      summary: List cameras
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Camera list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Camera"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/schemas/Error"
+    post:
+      operationId: createCamera
+      summary: Add a camera
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                maker:
+                  type: string
+      responses:
+        "201":
+          description: Camera created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+        "400":
+          $ref: "#/components/schemas/Error"
+
+  /api/gear/cameras/{id}:
+    parameters:
+      - $ref: "#/components/parameters/id"
+    get:
+      operationId: getCamera
+      summary: Get a camera
+      responses:
+        "200":
+          description: Camera
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+        "404":
+          $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateCamera
+      summary: Update a camera
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                maker:
+                  type: string
+      responses:
+        "200":
+          description: Updated camera
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+        "404":
+          $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteCamera
+      summary: Delete a camera
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/schemas/Error"
+
+  # ── Gear: Lenses ──────────────────────────────────────────────────────────────
+
+  /api/gear/lenses:
+    get:
+      operationId: listLenses
+      summary: List lenses
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Lens list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Lens"
+                  total:
+                    type: integer
+    post:
+      operationId: createLens
+      summary: Add a lens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                focal_length_mm:
+                  type: number
+                max_aperture:
+                  type: string
+      responses:
+        "201":
+          description: Lens created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lens"
+
+  /api/gear/lenses/{id}:
+    parameters:
+      - $ref: "#/components/parameters/id"
+    get:
+      operationId: getLens
+      summary: Get a lens
+      responses:
+        "200":
+          description: Lens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lens"
+        "404":
+          $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateLens
+      summary: Update a lens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                focal_length_mm:
+                  type: number
+                max_aperture:
+                  type: string
+      responses:
+        "200":
+          description: Updated lens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lens"
+        "404":
+          $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteLens
+      summary: Delete a lens
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/schemas/Error"
+
+  # ── Gear: Film Stocks ─────────────────────────────────────────────────────────
+
+  /api/gear/films:
+    get:
+      operationId: listFilmStocks
+      summary: List film stocks
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+      responses:
+        "200":
+          description: Film stock list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FilmStock"
+                  total:
+                    type: integer
+    post:
+      operationId: createFilmStock
+      summary: Add a film stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                iso:
+                  type: integer
+                process:
+                  type: string
+      responses:
+        "201":
+          description: Film stock created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilmStock"
+
+  /api/gear/films/{id}:
+    parameters:
+      - $ref: "#/components/parameters/id"
+    get:
+      operationId: getFilmStock
+      summary: Get a film stock
+      responses:
+        "200":
+          description: Film stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilmStock"
+        "404":
+          $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateFilmStock
+      summary: Update a film stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                iso:
+                  type: integer
+                process:
+                  type: string
+      responses:
+        "200":
+          description: Updated film stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilmStock"
+        "404":
+          $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteFilmStock
+      summary: Delete a film stock
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/schemas/Error"
+
+  # ── Rolls ─────────────────────────────────────────────────────────────────────
+
+  /api/rolls:
+    get:
+      operationId: listRolls
+      summary: List rolls
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - name: film_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Roll list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Roll"
+                  total:
+                    type: integer
+    post:
+      operationId: createRoll
+      summary: Start a roll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                film_id:
+                  type: string
+                loaded_at:
+                  type: string
+                  format: date-time
+      responses:
+        "201":
+          description: Roll created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Roll"
+
+  /api/rolls/{id}:
+    parameters:
+      - $ref: "#/components/parameters/id"
+    get:
+      operationId: getRoll
+      summary: Get a roll
+      responses:
+        "200":
+          description: Roll
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Roll"
+        "404":
+          $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateRoll
+      summary: Update a roll (e.g. mark developed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                film_id:
+                  type: string
+                  nullable: true
+                loaded_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                developed_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        "200":
+          description: Updated roll
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Roll"
+        "404":
+          $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteRoll
+      summary: Delete a roll
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/schemas/Error"
+
+  # ── Photographs ───────────────────────────────────────────────────────────────
+
+  /api/photographs:
+    get:
+      operationId: listPhotographs
+      summary: List photographs
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - name: roll_id
+          in: query
+          schema:
+            type: string
+        - name: camera_id
+          in: query
+          schema:
+            type: string
+        - name: lens_id
+          in: query
+          schema:
+            type: string
+        - name: film_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Photograph list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Photograph"
+                  total:
+                    type: integer
+    post:
+      operationId: createPhotograph
+      summary: Log a photograph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roll_id:
+                  type: string
+                camera_id:
+                  type: string
+                lens_id:
+                  type: string
+                film_id:
+                  type: string
+                frame_number:
+                  type: string
+                taken_at:
+                  type: string
+                  format: date-time
+                aperture:
+                  type: string
+                shutter_speed:
+                  type: string
+                iso:
+                  type: integer
+                exposure_compensation:
+                  type: string
+                focal_length_mm:
+                  type: number
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                altitude_m:
+                  type: number
+                gps_accuracy_m:
+                  type: number
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Photograph logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photograph"
+
+  /api/photographs/{id}:
+    parameters:
+      - $ref: "#/components/parameters/id"
+    get:
+      operationId: getPhotograph
+      summary: Get a photograph
+      responses:
+        "200":
+          description: Photograph
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photograph"
+        "404":
+          $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updatePhotograph
+      summary: Update a photograph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roll_id:
+                  type: string
+                  nullable: true
+                camera_id:
+                  type: string
+                  nullable: true
+                lens_id:
+                  type: string
+                  nullable: true
+                film_id:
+                  type: string
+                  nullable: true
+                frame_number:
+                  type: string
+                  nullable: true
+                taken_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                aperture:
+                  type: string
+                  nullable: true
+                shutter_speed:
+                  type: string
+                  nullable: true
+                iso:
+                  type: integer
+                  nullable: true
+                exposure_compensation:
+                  type: string
+                  nullable: true
+                focal_length_mm:
+                  type: number
+                  nullable: true
+                latitude:
+                  type: number
+                  nullable: true
+                longitude:
+                  type: number
+                  nullable: true
+                altitude_m:
+                  type: number
+                  nullable: true
+                gps_accuracy_m:
+                  type: number
+                  nullable: true
+                notes:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Updated photograph
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Photograph"
+        "404":
+          $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deletePhotograph
+      summary: Delete a photograph
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/schemas/Error"
+
+  # ── Photograph Images ─────────────────────────────────────────────────────────
+
+  /api/photographs/{id}/images:
+    parameters:
+      - $ref: "#/components/parameters/id"
+    get:
+      operationId: listPhotographImages
+      summary: List images for a photograph
+      responses:
+        "200":
+          description: Image list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PhotographImage"
+        "404":
+          $ref: "#/components/schemas/Error"
+    post:
+      operationId: uploadPhotographImage
+      summary: Upload a reference image for a photograph
+      description: |
+        Upload a reference scan or contact print. Multipart form upload.
+        The `url` field in the response will be absent until R2 is enabled on the account.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotographImage"
+        "404":
+          $ref: "#/components/schemas/Error"
+        "503":
+          description: R2 not yet enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/photographs/{id}/images/{image_id}:
+    parameters:
+      - $ref: "#/components/parameters/id"
+      - name: image_id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      operationId: deletePhotographImage
+      summary: Delete an image
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/schemas/Error"
