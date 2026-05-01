@@ -81,6 +81,11 @@ export function PhotoEditPage() {
 
   if (!form) return <div className="page"><p className="muted">Loading…</p></div>;
 
+  const selectedCamera = cameras.find(c => c.id === form.camera_id);
+  const visibleLenses = selectedCamera?.compatible_lenses
+    ? lenses.filter(l => selectedCamera.compatible_lenses!.includes(l.id))
+    : lenses;
+
   return (
     <div className="page page-narrow">
       <div className="page-header">
@@ -122,7 +127,7 @@ export function PhotoEditPage() {
               <label htmlFor="lens_id">Lens</label>
               <select id="lens_id" value={form.lens_id} onChange={set("lens_id")}>
                 <option value="">None</option>
-                {lenses.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                {visibleLenses.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
             <div className="field">

@@ -12,6 +12,7 @@ export interface Camera {
   maker: string | null;
   film_type: 'sheet' | 'roll' | null;  // sheet for large format sheet film, roll for continuous film
   film_holders_id: string | null;  // ID of linked film holder for sheet film cameras
+  compatible_lenses: string[] | null;  // null = all lenses; array of lens IDs = restricted set
   created_at: string;
 }
 

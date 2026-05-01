@@ -14,6 +14,13 @@ function paginate(query: Record<string, string>) {
   return { limit: isNaN(limit) ? 50 : limit, offset: isNaN(offset) ? 0 : offset };
 }
 
+function parseCamera(row: Camera & { compatible_lenses: string | null }): Camera {
+  return {
+    ...row,
+    compatible_lenses: row.compatible_lenses ? JSON.parse(row.compatible_lenses) : null,
+  };
+}
+
 // ─── Cameras ──────────────────────────────────────────────────────────────────
 
 gear.get("/cameras", async (c) => {
@@ -21,45 +28,52 @@ gear.get("/cameras", async (c) => {
   const { limit, offset } = paginate(c.req.query());
   const [rows, count] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM cameras WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-      .bind(userId, limit, offset).all<Camera>(),
+      .bind(userId, limit, offset).all<Camera & { compatible_lenses: string | null }>(),
     c.env.DB.prepare("SELECT COUNT(*) as total FROM cameras WHERE user_id = ?")
       .bind(userId).first<{ total: number }>(),
   ]);
-  return c.json({ items: rows.results, total: count?.total ?? 0 });
+  return c.json({ items: rows.results.map(parseCamera), total: count?.total ?? 0 });
 });
 
 gear.post("/cameras", async (c) => {
   const userId = getUserId(c);
-  const { name, maker, film_type, film_holders_id } = await c.req.json();
+  const { name, maker, film_type, film_holders_id, compatible_lenses } = await c.req.json();
   if (!name) return c.json({ error: "name is required" }, 400);
   const id = ulid();
   const now = new Date().toISOString();
+  const compatibleLensesJson = Array.isArray(compatible_lenses) ? JSON.stringify(compatible_lenses) : null;
   await c.env.DB.prepare(
-    "INSERT INTO cameras (id, user_id, name, maker, film_type, film_holders_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).bind(id, userId, name, maker ?? null, film_type ?? null, film_holders_id ?? null, now).run();
-  const camera: Camera = { id, user_id: userId, name, maker: maker ?? null, film_type: film_type ?? null, film_holders_id: film_holders_id ?? null, created_at: now };
+    "INSERT INTO cameras (id, user_id, name, maker, film_type, film_holders_id, compatible_lenses, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(id, userId, name, maker ?? null, film_type ?? null, film_holders_id ?? null, compatibleLensesJson, now).run();
+  const camera: Camera = { id, user_id: userId, name, maker: maker ?? null, film_type: film_type ?? null, film_holders_id: film_holders_id ?? null, compatible_lenses: compatible_lenses ?? null, created_at: now };
   return c.json(camera, 201);
 });
 
 gear.get("/cameras/:id", async (c) => {
   const userId = getUserId(c);
-  const camera = await c.env.DB.prepare("SELECT * FROM cameras WHERE id = ? AND user_id = ?")
-    .bind(c.req.param("id"), userId).first<Camera>();
-  if (!camera) return c.json({ error: "Not found" }, 404);
-  return c.json(camera);
+  const row = await c.env.DB.prepare("SELECT * FROM cameras WHERE id = ? AND user_id = ?")
+    .bind(c.req.param("id"), userId).first<Camera & { compatible_lenses: string | null }>();
+  if (!row) return c.json({ error: "Not found" }, 404);
+  return c.json(parseCamera(row));
 });
 
 gear.patch("/cameras/:id", async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
-  const fields = Object.entries(body).filter(([k]) => ["name", "maker", "film_type", "film_holders_id"].includes(k));
-  if (fields.length === 0) return c.json({ error: "No valid fields to update" }, 400);
+  const ALLOWED = ["name", "maker", "film_type", "film_holders_id", "compatible_lenses"];
+  const rawFields = Object.entries(body).filter(([k]) => ALLOWED.includes(k));
+  if (rawFields.length === 0) return c.json({ error: "No valid fields to update" }, 400);
+  const fields = rawFields.map(([k, v]) =>
+    k === "compatible_lenses" ? [k, Array.isArray(v) ? JSON.stringify(v) : null] : [k, v]
+  );
   const set = fields.map(([k]) => `${k} = ?`).join(", ");
   const result = await c.env.DB.prepare(
     `UPDATE cameras SET ${set} WHERE id = ? AND user_id = ?`
   ).bind(...fields.map(([, v]) => v), c.req.param("id"), userId).run();
   if (result.meta.changes === 0) return c.json({ error: "Not found" }, 404);
-  return c.json(await c.env.DB.prepare("SELECT * FROM cameras WHERE id = ?").bind(c.req.param("id")).first<Camera>());
+  const row = await c.env.DB.prepare("SELECT * FROM cameras WHERE id = ?")
+    .bind(c.req.param("id")).first<Camera & { compatible_lenses: string | null }>();
+  return c.json(parseCamera(row!));
 });
 
 gear.delete("/cameras/:id", async (c) => {
