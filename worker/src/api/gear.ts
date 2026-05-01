@@ -92,9 +92,14 @@ gear.post("/film_holders", async (c) => {
   if (!name) return c.json({ error: "name is required" }, 400);
   const id = ulid();
   const now = new Date().toISOString();
-  await c.env.DB.prepare(
-    "INSERT INTO film_holders (id, user_id, name, type, width_mm, height_mm, brand, capacity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(id, userId, name, type ?? null, width_mm ?? null, height_mm ?? null, brand ?? null, capacity ?? null, now).run();
+  try {
+    await c.env.DB.prepare(
+      "INSERT INTO film_holders (id, user_id, name, type, width_mm, height_mm, brand, capacity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(id, userId, name, type ?? null, width_mm ?? null, height_mm ?? null, brand ?? null, capacity ?? null, now).run();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Failed to create film holder: ${msg}` }, 500);
+  }
   const holder: FilmHolder = { id, user_id: userId, name, type: type ?? null, width_mm: width_mm ?? null, height_mm: height_mm ?? null, brand: brand ?? null, capacity: capacity ?? null, created_at: now };
   return c.json(holder, 201);
 });

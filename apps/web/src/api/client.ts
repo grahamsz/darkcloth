@@ -89,7 +89,7 @@ export interface FilmHolder {
   id: string;
   user_id: string;
   name: string;
-  type: string;
+  type: string | null;
   width_mm: number | null;
   height_mm: number | null;
   brand: string | null;
