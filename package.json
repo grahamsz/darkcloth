@@ -7,7 +7,8 @@
     "web:dev": "npm run dev --prefix apps/web",
     "api:publish": "node scripts/publish-openapi.mjs",
     "dev": "wrangler dev",
-    "deploy": "npm run web:build && wrangler deploy",
+    "verify-apk": "bash scripts/verify-apk.sh",
+    "deploy": "npm run verify-apk && npm run web:build && wrangler deploy",
     "types": "wrangler types",
     "d1:migrations:apply": "wrangler d1 migrations apply phototracker"
   },
