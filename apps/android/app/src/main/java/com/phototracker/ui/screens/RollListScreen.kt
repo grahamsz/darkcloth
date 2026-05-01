@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,7 +57,8 @@ fun RollListScreen(viewModel: RollViewModel = viewModel()) {
                         RollItem(
                             roll = roll,
                             onDevelop = { viewModel.markRollDeveloped(it) },
-                            onEdit = { editingRoll = roll }
+                            onEdit = { editingRoll = roll },
+                            onDelete = { viewModel.deleteRoll(it) }
                         )
                         HorizontalDivider()
                     }
@@ -170,7 +172,7 @@ fun CreateRollDialog(
 }
 
 @Composable
-fun RollItem(roll: Roll, onDevelop: (String) -> Unit, onEdit: () -> Unit = {}) {
+fun RollItem(roll: Roll, onDevelop: (String) -> Unit, onEdit: () -> Unit = {}, onDelete: (String) -> Unit = {}) {
     ListItem(
         headlineContent = { Text(roll.name) },
         supportingContent = {
@@ -197,6 +199,14 @@ fun RollItem(roll: Roll, onDevelop: (String) -> Unit, onEdit: () -> Unit = {}) {
                         contentDescription = "Edit roll",
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { onDelete(roll.id) }) {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = "Delete roll",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
                 if (roll.developedAt == null) {
