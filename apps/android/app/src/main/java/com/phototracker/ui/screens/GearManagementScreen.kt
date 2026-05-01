@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.phototracker.data.model.Camera
-import com.phototracker.data.model.FilmHolder
 import com.phototracker.data.model.FilmStock
 import com.phototracker.data.model.Lens
 import com.phototracker.viewmodel.GearViewModel
@@ -22,14 +21,13 @@ import com.phototracker.viewmodel.GearViewModel
 @Composable
 fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Cameras", "Lenses", "Films", "Film Holders")
+    val tabs = listOf("Cameras", "Lenses", "Films")
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
 
     var editingCamera by remember { mutableStateOf<Camera?>(null) }
     var editingLens by remember { mutableStateOf<Lens?>(null) }
     var editingFilm by remember { mutableStateOf<FilmStock?>(null) }
-    var editingFilmHolder by remember { mutableStateOf<FilmHolder?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -55,7 +53,7 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
                 )
             }
 
-            ScrollableTabRow(selectedTabIndex = selectedTab) {
+            TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
@@ -81,11 +79,6 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
                     onEdit = { editingFilm = it },
                     onDelete = { viewModel.deleteFilmStock(it.id) }
                 )
-                3 -> FilmHolderList(
-                    filmHolders = uiState.filmHolders,
-                    onEdit = { editingFilmHolder = it },
-                    onDelete = { viewModel.deleteFilmHolder(it.id) }
-                )
             }
         }
     }
@@ -110,13 +103,6 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
                 onDismiss = { showAddDialog = false },
                 onAdd = { name, iso, process ->
                     viewModel.createFilmStock(name, iso, process)
-                    showAddDialog = false
-                }
-            )
-            3 -> AddFilmHolderDialog(
-                onDismiss = { showAddDialog = false },
-                onAdd = { name, type, brand, widthMm, heightMm, capacity ->
-                    viewModel.createFilmHolder(name, type, brand, widthMm, heightMm, capacity)
                     showAddDialog = false
                 }
             )
@@ -152,17 +138,6 @@ fun GearManagementScreen(viewModel: GearViewModel = viewModel()) {
             onSave = { name, iso, process ->
                 viewModel.updateFilmStock(film.id, name, iso, process)
                 editingFilm = null
-            }
-        )
-    }
-
-    editingFilmHolder?.let { holder ->
-        EditFilmHolderDialog(
-            filmHolder = holder,
-            onDismiss = { editingFilmHolder = null },
-            onSave = { name, type, brand, widthMm, heightMm, capacity ->
-                viewModel.updateFilmHolder(holder.id, name, type, brand, widthMm, heightMm, capacity)
-                editingFilmHolder = null
             }
         )
     }
@@ -332,115 +307,6 @@ fun EditFilmDialog(film: FilmStock, onDismiss: () -> Unit, onSave: (String, Int?
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddFilmHolderDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String, String?, String?, Double?, Double?, Int?) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("") }
-    var brand by remember { mutableStateOf("") }
-    var widthMm by remember { mutableStateOf("") }
-    var heightMm by remember { mutableStateOf("") }
-    var capacity by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Film Holder") },
-        text = {
-            Column {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = type, onValueChange = { type = it }, label = { Text("Type") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = brand, onValueChange = { brand = it }, label = { Text("Brand") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                Row {
-                    OutlinedTextField(value = widthMm, onValueChange = { widthMm = it }, label = { Text("Width (mm)") }, modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedTextField(value = heightMm, onValueChange = { heightMm = it }, label = { Text("Height (mm)") }, modifier = Modifier.weight(1f))
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = capacity, onValueChange = { capacity = it }, label = { Text("Capacity") }, modifier = Modifier.fillMaxWidth())
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onAdd(
-                        name,
-                        type.takeIf { it.isNotBlank() },
-                        brand.takeIf { it.isNotBlank() },
-                        widthMm.toDoubleOrNull(),
-                        heightMm.toDoubleOrNull(),
-                        capacity.toIntOrNull()
-                    )
-                },
-                enabled = name.isNotBlank()
-            ) {
-                Text("Add")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EditFilmHolderDialog(
-    filmHolder: FilmHolder,
-    onDismiss: () -> Unit,
-    onSave: (String, String?, String?, Double?, Double?, Int?) -> Unit
-) {
-    var name by remember { mutableStateOf(filmHolder.name) }
-    var type by remember { mutableStateOf(filmHolder.type) }
-    var brand by remember { mutableStateOf(filmHolder.brand ?: "") }
-    var widthMm by remember { mutableStateOf(filmHolder.widthMm?.toString() ?: "") }
-    var heightMm by remember { mutableStateOf(filmHolder.heightMm?.toString() ?: "") }
-    var capacity by remember { mutableStateOf(filmHolder.capacity?.toString() ?: "") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Film Holder") },
-        text = {
-            Column {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = type, onValueChange = { type = it }, label = { Text("Type") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = brand, onValueChange = { brand = it }, label = { Text("Brand") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                Row {
-                    OutlinedTextField(value = widthMm, onValueChange = { widthMm = it }, label = { Text("Width (mm)") }, modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedTextField(value = heightMm, onValueChange = { heightMm = it }, label = { Text("Height (mm)") }, modifier = Modifier.weight(1f))
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = capacity, onValueChange = { capacity = it }, label = { Text("Capacity") }, modifier = Modifier.fillMaxWidth())
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(
-                        name,
-                        type.takeIf { it.isNotBlank() },
-                        brand.takeIf { it.isNotBlank() },
-                        widthMm.toDoubleOrNull(),
-                        heightMm.toDoubleOrNull(),
-                        capacity.toIntOrNull()
-                    )
-                },
-                enabled = name.isNotBlank()
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
 @Composable
 fun CameraList(cameras: List<Camera>, onEdit: (Camera) -> Unit, onDelete: (Camera) -> Unit) {
     LazyColumn {
@@ -506,37 +372,6 @@ fun FilmStockList(films: List<FilmStock>, onEdit: (FilmStock) -> Unit, onDelete:
                             Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                         }
                         IconButton(onClick = { onDelete(film) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete",
-                                modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-            )
-            HorizontalDivider()
-        }
-    }
-}
-
-@Composable
-fun FilmHolderList(filmHolders: List<FilmHolder>, onEdit: (FilmHolder) -> Unit, onDelete: (FilmHolder) -> Unit) {
-    LazyColumn {
-        items(filmHolders, key = { it.id }) { holder ->
-            ListItem(
-                headlineContent = { Text(holder.name) },
-                supportingContent = {
-                    val details = listOfNotNull(
-                        holder.type.takeIf { it.isNotBlank() },
-                        holder.brand,
-                        holder.capacity?.let { "${it}x" }
-                    ).joinToString(" · ")
-                    if (details.isNotEmpty()) Text(details)
-                },
-                trailingContent = {
-                    Row {
-                        IconButton(onClick = { onEdit(holder) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(onClick = { onDelete(holder) }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete",
                                 modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                         }

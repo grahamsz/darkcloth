@@ -6,32 +6,22 @@ type Section = "cameras" | "lenses" | "films" | "rolls" | "film_holders";
 
 function CamerasSection() {
   const [items, setItems] = useState<Camera[]>([]);
-  const [lenses, setLenses] = useState<Lens[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [maker, setMaker] = useState("");
-  const [filmType, setFilmType] = useState<"" | "roll" | "sheet">("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editMaker, setEditMaker] = useState("");
-  const [editFilmType, setEditFilmType] = useState<"" | "roll" | "sheet">("");
-  const [editCompatibleLenses, setEditCompatibleLenses] = useState<string[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      api.listCameras(),
-      api.listLenses().catch(() => ({ items: [] as Lens[] })),
-    ])
-      .then(([camsRes, lensRes]) => {
-        setItems(camsRes.items);
-        setLenses(lensRes.items);
-      })
+    api.listCameras()
+      .then(r => setItems(r.items))
       .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -41,13 +31,9 @@ function CamerasSection() {
     setAddError(null);
     setAdding(true);
     try {
-      const camera = await api.createCamera({
-        name,
-        maker: maker || undefined,
-        film_type: filmType || undefined,
-      });
+      const camera = await api.createCamera({ name, maker: maker || undefined });
       setItems(c => [...c, camera]);
-      setName(""); setMaker(""); setFilmType(""); setShowForm(false);
+      setName(""); setMaker(""); setShowForm(false);
     } catch (e) {
       setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
@@ -59,35 +45,17 @@ function CamerasSection() {
     setEditingId(c.id);
     setEditName(c.name);
     setEditMaker(c.maker ?? "");
-    setEditFilmType((c.film_type ?? "") as "" | "roll" | "sheet");
-    setEditCompatibleLenses(c.compatible_lenses);
     setSaveError(null);
   };
 
   const cancelEdit = () => { setEditingId(null); setSaveError(null); };
-
-  const toggleLens = (lensId: string) => {
-    setEditCompatibleLenses(prev => {
-      if (prev === null) return [lensId];
-      if (prev.includes(lensId)) {
-        const next = prev.filter(id => id !== lensId);
-        return next.length === 0 ? null : next;
-      }
-      return [...prev, lensId];
-    });
-  };
 
   const handleSave = async (e: FormEvent, id: string) => {
     e.preventDefault();
     setSaveError(null);
     setSaving(true);
     try {
-      const updated = await api.updateCamera(id, {
-        name: editName,
-        maker: editMaker || undefined,
-        film_type: editFilmType || null,
-        compatible_lenses: editCompatibleLenses,
-      });
+      const updated = await api.updateCamera(id, { name: editName, maker: editMaker || undefined });
       setItems(cs => cs.map(c => c.id === id ? updated : c));
       setEditingId(null);
     } catch (e) {
@@ -116,11 +84,6 @@ function CamerasSection() {
           {addError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{addError}</p>}
           <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
           <input placeholder="Maker (optional)" value={maker} onChange={e => setMaker(e.target.value)} />
-          <select value={filmType} onChange={e => setFilmType(e.target.value as "" | "roll" | "sheet")}>
-            <option value="">Film format…</option>
-            <option value="roll">Roll film</option>
-            <option value="sheet">Sheet film</option>
-          </select>
           <button type="submit" disabled={adding}>{adding ? "Adding…" : "Add"}</button>
         </form>
       )}
@@ -129,57 +92,19 @@ function CamerasSection() {
       {!loading && !loadError && items.length === 0 && <p className="muted">No cameras yet.</p>}
       <ul className="gear-list">
         {items.map(c => (
-          <li key={c.id} className="gear-row" style={editingId === c.id ? { flexWrap: "wrap" } : undefined}>
+          <li key={c.id} className="gear-row">
             {editingId === c.id ? (
-              <form onSubmit={e => handleSave(e, c.id)} style={{ flex: "1 1 100%", display: "flex", flexDirection: "column", gap: 8 }}>
-                {saveError && <p className="form-error" style={{ margin: 0 }}>{saveError}</p>}
-                <div className="inline-form" style={{ margin: 0 }}>
-                  <input placeholder="Name" value={editName} onChange={e => setEditName(e.target.value)} required />
-                  <input placeholder="Maker (optional)" value={editMaker} onChange={e => setEditMaker(e.target.value)} />
-                  <select value={editFilmType} onChange={e => setEditFilmType(e.target.value as "" | "roll" | "sheet")}>
-                    <option value="">Film format…</option>
-                    <option value="roll">Roll film</option>
-                    <option value="sheet">Sheet film</option>
-                  </select>
-                  <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
-                  <button type="button" onClick={cancelEdit}>Cancel</button>
-                </div>
-                {lenses.length > 0 && (
-                  <div>
-                    <p style={{ margin: "0 0 4px", fontSize: "0.85em", color: "var(--text-muted, #666)" }}>
-                      Compatible lenses ({editCompatibleLenses === null ? "all" : `${editCompatibleLenses.length} selected`})
-                    </p>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.9em", marginBottom: 4 }}>
-                      <input
-                        type="checkbox"
-                        checked={editCompatibleLenses === null}
-                        onChange={() => setEditCompatibleLenses(null)}
-                      />
-                      All lenses / no restriction
-                    </label>
-                    {lenses.map(l => (
-                      <label key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.9em", marginBottom: 2 }}>
-                        <input
-                          type="checkbox"
-                          checked={editCompatibleLenses !== null && editCompatibleLenses.includes(l.id)}
-                          onChange={() => toggleLens(l.id)}
-                        />
-                        {l.name}{l.focal_length_mm != null ? ` (${l.focal_length_mm}mm)` : ""}
-                      </label>
-                    ))}
-                  </div>
-                )}
+              <form onSubmit={e => handleSave(e, c.id)} className="inline-form" style={{ flex: 1 }}>
+                {saveError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{saveError}</p>}
+                <input placeholder="Name" value={editName} onChange={e => setEditName(e.target.value)} required />
+                <input placeholder="Maker (optional)" value={editMaker} onChange={e => setEditMaker(e.target.value)} />
+                <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                <button type="button" onClick={cancelEdit}>Cancel</button>
               </form>
             ) : (
               <>
                 <span className="gear-name">{c.name}</span>
-                <span className="gear-meta">
-                  {[
-                    c.maker,
-                    c.film_type === "roll" ? "Roll film" : c.film_type === "sheet" ? "Sheet film" : null,
-                    c.compatible_lenses !== null ? `${c.compatible_lenses.length} lens${c.compatible_lenses.length === 1 ? "" : "es"}` : null,
-                  ].filter(Boolean).join(" · ")}
-                </span>
+                {c.maker && <span className="gear-meta">{c.maker}</span>}
                 <button className="link-btn" onClick={() => startEdit(c)}>Edit</button>
                 <button className="gear-delete" onClick={() => handleDelete(c.id)} aria-label="Delete">×</button>
               </>

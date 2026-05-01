@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.phototracker.api.ApiClient
 import com.phototracker.data.model.Camera
-import com.phototracker.data.model.FilmHolder
 import com.phototracker.data.model.FilmStock
 import com.phototracker.data.model.Lens
 import com.phototracker.data.model.Photograph
@@ -22,7 +21,6 @@ data class EditPhotographUiState(
     val cameras: List<Camera> = emptyList(),
     val lenses: List<Lens> = emptyList(),
     val films: List<FilmStock> = emptyList(),
-    val filmHolders: List<FilmHolder> = emptyList(),
     val error: String? = null,
     val saved: Boolean = false,
     // Form fields
@@ -37,7 +35,6 @@ data class EditPhotographUiState(
     val selectedCameraId: String? = null,
     val selectedLensId: String? = null,
     val selectedFilmId: String? = null,
-    val selectedFilmHolderId: String? = null,
 )
 
 class EditPhotographViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,7 +51,6 @@ class EditPhotographViewModel(application: Application) : AndroidViewModel(appli
                 val camerasRes = apiService.listCameras()
                 val lensesRes = apiService.listLenses()
                 val filmsRes = apiService.listFilmStocks()
-                val filmHoldersRes = apiService.listFilmHolders()
 
                 if (photoRes.isSuccessful) {
                     val photo = photoRes.body()!!
@@ -64,7 +60,6 @@ class EditPhotographViewModel(application: Application) : AndroidViewModel(appli
                         cameras = camerasRes.body()?.items ?: emptyList(),
                         lenses = lensesRes.body()?.items ?: emptyList(),
                         films = filmsRes.body()?.items ?: emptyList(),
-                        filmHolders = filmHoldersRes.body()?.items ?: emptyList(),
                         frameNumber = photo.frameNumber ?: "",
                         takenAt = photo.takenAt ?: "",
                         aperture = photo.aperture ?: "",
@@ -76,7 +71,6 @@ class EditPhotographViewModel(application: Application) : AndroidViewModel(appli
                         selectedCameraId = photo.cameraId,
                         selectedLensId = photo.lensId,
                         selectedFilmId = photo.filmId,
-                        selectedFilmHolderId = photo.filmHolderId,
                     ) }
                 } else {
                     _uiState.update { it.copy(isLoading = false, error = "Failed to load photograph") }
@@ -106,7 +100,6 @@ class EditPhotographViewModel(application: Application) : AndroidViewModel(appli
     fun selectCamera(id: String?) { _uiState.update { it.copy(selectedCameraId = id) } }
     fun selectLens(id: String?) { _uiState.update { it.copy(selectedLensId = id) } }
     fun selectFilm(id: String?) { _uiState.update { it.copy(selectedFilmId = id) } }
-    fun selectFilmHolder(id: String?) { _uiState.update { it.copy(selectedFilmHolderId = id) } }
 
     fun save(id: String) {
         viewModelScope.launch {
@@ -125,7 +118,6 @@ class EditPhotographViewModel(application: Application) : AndroidViewModel(appli
                     put("camera_id", state.selectedCameraId)
                     put("lens_id", state.selectedLensId)
                     put("film_id", state.selectedFilmId)
-                    put("film_holder_id", state.selectedFilmHolderId)
                 }
                 val response = apiService.updatePhotograph(id, body)
                 if (response.isSuccessful) {

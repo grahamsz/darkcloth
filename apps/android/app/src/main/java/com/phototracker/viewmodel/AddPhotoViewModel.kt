@@ -11,7 +11,6 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.LocationServices
 import com.phototracker.api.ApiClient
 import com.phototracker.data.model.Camera
-import com.phototracker.data.model.FilmHolder
 import com.phototracker.data.model.FilmStock
 import com.phototracker.data.model.Lens
 import com.phototracker.data.model.Roll
@@ -32,7 +31,6 @@ data class AddPhotoUiState(
     val cameraId: String? = null,
     val lensId: String? = null,
     val filmId: String? = null,
-    val filmHolderId: String? = null,
     val frameNumber: String = "",
     val notes: String = "",
     val aperture: String = "",
@@ -48,7 +46,6 @@ data class AddPhotoUiState(
     val cameras: List<Camera> = emptyList(),
     val lenses: List<Lens> = emptyList(),
     val filmStocks: List<FilmStock> = emptyList(),
-    val filmHolders: List<FilmHolder> = emptyList(),
     val rolls: List<Roll> = emptyList(),
     val isFetchingGear: Boolean = false,
     val imageUri: Uri? = null
@@ -74,7 +71,6 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
     fun updateCameraId(id: String?) { _uiState.update { it.copy(cameraId = id) } }
     fun updateLensId(id: String?) { _uiState.update { it.copy(lensId = id) } }
     fun updateFilmId(id: String?) { _uiState.update { it.copy(filmId = id) } }
-    fun updateFilmHolderId(id: String?) { _uiState.update { it.copy(filmHolderId = id) } }
     fun updateFrameNumber(frame: String) { _uiState.update { it.copy(frameNumber = frame) } }
     fun updateNotes(notes: String) { _uiState.update { it.copy(notes = notes) } }
     fun updateAperture(aperture: String) { _uiState.update { it.copy(aperture = aperture) } }
@@ -92,7 +88,6 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                 val lensesRes = apiService.listLenses()
                 val filmsRes = apiService.listFilmStocks()
                 val rollsRes = apiService.listRolls()
-                val filmHoldersRes = apiService.listFilmHolders()
 
                 _uiState.update { state ->
                     state.copy(
@@ -100,8 +95,7 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                         cameras = camerasRes.body()?.items ?: emptyList(),
                         lenses = lensesRes.body()?.items ?: emptyList(),
                         filmStocks = filmsRes.body()?.items ?: emptyList(),
-                        rolls = rollsRes.body()?.items ?: emptyList(),
-                        filmHolders = filmHoldersRes.body()?.items ?: emptyList()
+                        rolls = rollsRes.body()?.items ?: emptyList()
                     )
                 }
             } catch (e: Exception) {
@@ -141,7 +135,6 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                     "camera_id" to state.cameraId,
                     "lens_id" to state.lensId,
                     "film_id" to state.filmId,
-                    "film_holder_id" to state.filmHolderId,
                     "frame_number" to state.frameNumber,
                     "notes" to state.notes,
                     "aperture" to state.aperture,

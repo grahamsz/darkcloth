@@ -44,18 +44,6 @@ data class FilmStock(
     @SerializedName("created_at") val createdAt: String
 )
 
-data class FilmHolder(
-    val id: String,
-    @SerializedName("user_id") val userId: String,
-    val name: String,
-    val type: String,
-    @SerializedName("width_mm") val widthMm: Double?,
-    @SerializedName("height_mm") val heightMm: Double?,
-    val brand: String?,
-    val capacity: Int?,
-    @SerializedName("created_at") val createdAt: String
-)
-
 data class Roll(
     val id: String,
     @SerializedName("user_id") val userId: String,
@@ -73,7 +61,6 @@ data class Photograph(
     @SerializedName("camera_id") val cameraId: String?,
     @SerializedName("lens_id") val lensId: String?,
     @SerializedName("film_id") val filmId: String?,
-    @SerializedName("film_holder_id") val filmHolderId: String?,
     @SerializedName("frame_number") val frameNumber: String?,
     @SerializedName("taken_at") val takenAt: String?,
     val aperture: String?,

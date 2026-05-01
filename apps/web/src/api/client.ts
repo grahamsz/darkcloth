@@ -54,7 +54,6 @@ export interface Camera {
   maker: string | null;
   film_type: 'sheet' | 'roll' | null;
   film_holders_id: string | null;
-  compatible_lenses: string[] | null;
   created_at: string;
 }
 
@@ -90,7 +89,7 @@ export interface FilmHolder {
   id: string;
   user_id: string;
   name: string;
-  type: string | null;
+  type: string;
   width_mm: number | null;
   height_mm: number | null;
   brand: string | null;
@@ -159,9 +158,9 @@ export const api = {
 
   // Gear — cameras
   listCameras: () => request<ListResponse<Camera>>("/gear/cameras"),
-  createCamera: (data: { name: string; maker?: string; film_type?: 'sheet' | 'roll'; film_holders_id?: string; compatible_lenses?: string[] | null }) =>
+  createCamera: (data: { name: string; maker?: string; film_type?: 'sheet' | 'roll'; film_holders_id?: string }) =>
     request<Camera>("/gear/cameras", { method: "POST", body: JSON.stringify(data) }),
-  updateCamera: (id: string, data: { name?: string; maker?: string; film_type?: 'sheet' | 'roll' | null; film_holders_id?: string; compatible_lenses?: string[] | null }) =>
+  updateCamera: (id: string, data: { name?: string; maker?: string; film_type?: 'sheet' | 'roll'; film_holders_id?: string }) =>
     request<Camera>(`/gear/cameras/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCamera: (id: string) =>
     request<void>(`/gear/cameras/${id}`, { method: "DELETE" }),
