@@ -13,6 +13,11 @@ function CamerasSection() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editMaker, setEditMaker] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     api.listCameras()
@@ -33,6 +38,30 @@ function CamerasSection() {
       setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
+    }
+  };
+
+  const startEdit = (c: Camera) => {
+    setEditingId(c.id);
+    setEditName(c.name);
+    setEditMaker(c.maker ?? "");
+    setSaveError(null);
+  };
+
+  const cancelEdit = () => { setEditingId(null); setSaveError(null); };
+
+  const handleSave = async (e: FormEvent, id: string) => {
+    e.preventDefault();
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const updated = await api.updateCamera(id, { name: editName, maker: editMaker || undefined });
+      setItems(cs => cs.map(c => c.id === id ? updated : c));
+      setEditingId(null);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -64,9 +93,22 @@ function CamerasSection() {
       <ul className="gear-list">
         {items.map(c => (
           <li key={c.id} className="gear-row">
-            <span className="gear-name">{c.name}</span>
-            {c.maker && <span className="gear-meta">{c.maker}</span>}
-            <button className="gear-delete" onClick={() => handleDelete(c.id)} aria-label="Delete">×</button>
+            {editingId === c.id ? (
+              <form onSubmit={e => handleSave(e, c.id)} className="inline-form" style={{ flex: 1 }}>
+                {saveError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{saveError}</p>}
+                <input placeholder="Name" value={editName} onChange={e => setEditName(e.target.value)} required />
+                <input placeholder="Maker (optional)" value={editMaker} onChange={e => setEditMaker(e.target.value)} />
+                <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                <button type="button" onClick={cancelEdit}>Cancel</button>
+              </form>
+            ) : (
+              <>
+                <span className="gear-name">{c.name}</span>
+                {c.maker && <span className="gear-meta">{c.maker}</span>}
+                <button className="link-btn" onClick={() => startEdit(c)}>Edit</button>
+                <button className="gear-delete" onClick={() => handleDelete(c.id)} aria-label="Delete">×</button>
+              </>
+            )}
           </li>
         ))}
       </ul>
@@ -84,6 +126,12 @@ function LensesSection() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editFocalLength, setEditFocalLength] = useState("");
+  const [editMaxAperture, setEditMaxAperture] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     api.listLenses()
@@ -108,6 +156,35 @@ function LensesSection() {
       setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
+    }
+  };
+
+  const startEdit = (l: Lens) => {
+    setEditingId(l.id);
+    setEditName(l.name);
+    setEditFocalLength(l.focal_length_mm != null ? String(l.focal_length_mm) : "");
+    setEditMaxAperture(l.max_aperture ?? "");
+    setSaveError(null);
+  };
+
+  const cancelEdit = () => { setEditingId(null); setSaveError(null); };
+
+  const handleSave = async (e: FormEvent, id: string) => {
+    e.preventDefault();
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const updated = await api.updateLens(id, {
+        name: editName,
+        focal_length_mm: editFocalLength ? parseFloat(editFocalLength) : undefined,
+        max_aperture: editMaxAperture || undefined,
+      });
+      setItems(ls => ls.map(l => l.id === id ? updated : l));
+      setEditingId(null);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -140,12 +217,26 @@ function LensesSection() {
       <ul className="gear-list">
         {items.map(l => (
           <li key={l.id} className="gear-row">
-            <span className="gear-name">{l.name}</span>
-            <span className="gear-meta">
-              {[l.focal_length_mm != null ? `${l.focal_length_mm}mm` : null, l.max_aperture]
-                .filter(Boolean).join(" · ")}
-            </span>
-            <button className="gear-delete" onClick={() => handleDelete(l.id)} aria-label="Delete">×</button>
+            {editingId === l.id ? (
+              <form onSubmit={e => handleSave(e, l.id)} className="inline-form" style={{ flex: 1 }}>
+                {saveError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{saveError}</p>}
+                <input placeholder="Name" value={editName} onChange={e => setEditName(e.target.value)} required />
+                <input placeholder="Focal length mm" type="number" value={editFocalLength} onChange={e => setEditFocalLength(e.target.value)} />
+                <input placeholder="Max aperture" value={editMaxAperture} onChange={e => setEditMaxAperture(e.target.value)} />
+                <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                <button type="button" onClick={cancelEdit}>Cancel</button>
+              </form>
+            ) : (
+              <>
+                <span className="gear-name">{l.name}</span>
+                <span className="gear-meta">
+                  {[l.focal_length_mm != null ? `${l.focal_length_mm}mm` : null, l.max_aperture]
+                    .filter(Boolean).join(" · ")}
+                </span>
+                <button className="link-btn" onClick={() => startEdit(l)}>Edit</button>
+                <button className="gear-delete" onClick={() => handleDelete(l.id)} aria-label="Delete">×</button>
+              </>
+            )}
           </li>
         ))}
       </ul>
@@ -163,6 +254,12 @@ function FilmsSection() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editIso, setEditIso] = useState("");
+  const [editProcess, setEditProcess] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     api.listFilms()
@@ -187,6 +284,35 @@ function FilmsSection() {
       setAddError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setAdding(false);
+    }
+  };
+
+  const startEdit = (f: FilmStock) => {
+    setEditingId(f.id);
+    setEditName(f.name);
+    setEditIso(f.iso != null ? String(f.iso) : "");
+    setEditProcess(f.process ?? "");
+    setSaveError(null);
+  };
+
+  const cancelEdit = () => { setEditingId(null); setSaveError(null); };
+
+  const handleSave = async (e: FormEvent, id: string) => {
+    e.preventDefault();
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const updated = await api.updateFilm(id, {
+        name: editName,
+        iso: editIso ? parseInt(editIso, 10) : undefined,
+        process: editProcess || undefined,
+      });
+      setItems(fs => fs.map(f => f.id === id ? updated : f));
+      setEditingId(null);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -219,11 +345,25 @@ function FilmsSection() {
       <ul className="gear-list">
         {items.map(f => (
           <li key={f.id} className="gear-row">
-            <span className="gear-name">{f.name}</span>
-            <span className="gear-meta">
-              {[f.iso != null ? `ISO ${f.iso}` : null, f.process].filter(Boolean).join(" · ")}
-            </span>
-            <button className="gear-delete" onClick={() => handleDelete(f.id)} aria-label="Delete">×</button>
+            {editingId === f.id ? (
+              <form onSubmit={e => handleSave(e, f.id)} className="inline-form" style={{ flex: 1 }}>
+                {saveError && <p className="form-error" style={{ width: "100%", margin: 0 }}>{saveError}</p>}
+                <input placeholder="Name" value={editName} onChange={e => setEditName(e.target.value)} required />
+                <input placeholder="ISO" type="number" value={editIso} onChange={e => setEditIso(e.target.value)} />
+                <input placeholder="Process (C-41, E-6…)" value={editProcess} onChange={e => setEditProcess(e.target.value)} />
+                <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                <button type="button" onClick={cancelEdit}>Cancel</button>
+              </form>
+            ) : (
+              <>
+                <span className="gear-name">{f.name}</span>
+                <span className="gear-meta">
+                  {[f.iso != null ? `ISO ${f.iso}` : null, f.process].filter(Boolean).join(" · ")}
+                </span>
+                <button className="link-btn" onClick={() => startEdit(f)}>Edit</button>
+                <button className="gear-delete" onClick={() => handleDelete(f.id)} aria-label="Delete">×</button>
+              </>
+            )}
           </li>
         ))}
       </ul>
