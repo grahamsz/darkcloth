@@ -145,6 +145,14 @@ fun AddPhotoScreen(
                 selectedId = uiState.filmId,
                 onSelected = { viewModel.updateFilmId(it) }
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            GearDropdown(
+                label = "Film Holder",
+                options = uiState.filmHolders.map { it.id to it.name },
+                selectedId = uiState.filmHolderId,
+                onSelected = { viewModel.updateFilmHolderId(it) }
+            )
             Spacer(modifier = Modifier.height(16.dp))
 
             Divider()

@@ -144,6 +144,12 @@ fun EditPhotographScreen(
                         selectedId = uiState.selectedFilmId,
                         onSelect = { viewModel.selectFilm(it) }
                     )
+                    GearDropdown(
+                        label = "Film Holder",
+                        options = uiState.filmHolders.map { it.id to it.name },
+                        selectedId = uiState.selectedFilmHolderId,
+                        onSelect = { viewModel.selectFilmHolder(it) }
+                    )
 
                     SectionLabel("Notes")
                     OutlinedTextField(

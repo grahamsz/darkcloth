@@ -76,6 +76,25 @@ interface ApiService {
     @DELETE("api/gear/films/{id}")
     suspend fun deleteFilmStock(@Path("id") id: String): Response<Unit>
 
+    // Gear: Film Holders
+    @GET("api/gear/film_holders")
+    suspend fun listFilmHolders(
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
+    ): Response<ListResponse<FilmHolder>>
+
+    @POST("api/gear/film_holders")
+    suspend fun createFilmHolder(@Body body: Map<String, Any?>): Response<FilmHolder>
+
+    @GET("api/gear/film_holders/{id}")
+    suspend fun getFilmHolder(@Path("id") id: String): Response<FilmHolder>
+
+    @PATCH("api/gear/film_holders/{id}")
+    suspend fun updateFilmHolder(@Path("id") id: String, @Body body: Map<String, Any?>): Response<FilmHolder>
+
+    @DELETE("api/gear/film_holders/{id}")
+    suspend fun deleteFilmHolder(@Path("id") id: String): Response<Unit>
+
     // Rolls
     @GET("api/rolls")
     suspend fun listRolls(
