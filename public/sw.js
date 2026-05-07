@@ -1,4 +1,5 @@
-const CACHE_NAME = "darkcloth-shell-v11";
+const CACHE_NAME = "darkcloth-shell-v12";
+const IMAGE_CACHE_NAME = "darkcloth-photograph-images-v1";
 const APP_SHELL_READY_MESSAGE = "DARKCLOTH_APP_SHELL_READY";
 const NAVIGATION_NETWORK_TIMEOUT_MS = 750;
 
@@ -29,6 +30,7 @@ const STATIC_ASSET_PATHS = new Set([
   "/darkcloth-icon.svg",
 ]);
 const STATIC_ASSET_DESTINATIONS = new Set(["script", "style", "image", "font"]);
+const SIGNED_PHOTOGRAPH_IMAGE_RE = /^\/api\/photographs\/[^/]+\/images\/[^/]+\/file$/;
 
 function isAppShellPath(pathname) {
   return APP_SHELL_PATHS.has(pathname) || pathname.startsWith("/app/");
@@ -142,9 +144,10 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
+      const liveCacheNames = new Set([CACHE_NAME, IMAGE_CACHE_NAME]);
       const cacheKeys = await caches.keys();
       await Promise.all(cacheKeys.map(async (key) => {
-        if (key !== CACHE_NAME) {
+        if (!liveCacheNames.has(key)) {
           await caches.delete(key);
         }
       }));
@@ -216,6 +219,40 @@ async function serveStaticAsset(request) {
   }
 }
 
+function stablePhotographImageCacheRequest(url) {
+  if (!SIGNED_PHOTOGRAPH_IMAGE_RE.test(url.pathname)) {
+    return null;
+  }
+
+  const variant = url.searchParams.get("variant") || "display";
+  if (variant !== "display" && variant !== "thumbnail" && variant !== "original") {
+    return null;
+  }
+
+  return new Request(`${url.origin}${url.pathname}?variant=${variant}`, {
+    method: "GET",
+    credentials: "same-origin",
+  });
+}
+
+async function servePhotographImage(request, cacheKeyRequest) {
+  const cache = await caches.open(IMAGE_CACHE_NAME);
+  const cached = await cache.match(cacheKeyRequest);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      await cache.put(cacheKeyRequest, response.clone());
+    }
+    return response;
+  } catch {
+    return cached ?? Response.error();
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -224,7 +261,17 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  const photographImageCacheKey = stablePhotographImageCacheRequest(url);
+  if (photographImageCacheKey) {
+    event.respondWith(servePhotographImage(request, photographImageCacheKey));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/")) {
     return;
   }
 
