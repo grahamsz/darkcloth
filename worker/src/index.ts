@@ -2,28 +2,76 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import auth from "./api/auth";
+import { filmHoldersRouter, filmStocksRouter } from "./api/film";
 import gear from "./api/gear";
 import rolls from "./api/rolls";
 import photos from "./api/photos";
+import dataExport from "./api/export";
+import admin from "./api/admin";
 
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  IMAGES: ImagesBinding;
   REFERENCE_IMAGES: R2Bucket;
   JWT_SECRET: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
 
+const CORS_ORIGINS = new Set([
+  "https://darkcloth.zone",
+  "https://phototracker.graha.ms",
+]);
+
+function resolveCorsOrigin(origin: string) {
+  if (!origin) return null;
+  if (CORS_ORIGINS.has(origin)) return origin;
+
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+
+    const hostname = url.hostname;
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname === "[::1]" ||
+      hostname.endsWith(".localhost")
+    ) {
+      return origin;
+    }
+  } catch {
+    // Ignore malformed origins and fall through to a CORS rejection.
+  }
+
+  return null;
+}
+
 app.use("*", logger());
-app.use("*", cors());
+app.use("*", cors({ origin: resolveCorsOrigin }));
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "no-referrer");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Permissions-Policy", "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()");
+});
 
 // Health check
 app.get("/api/health", (c) => {
-  return c.json({
+  return new Response(JSON.stringify({
     ok: true,
     service: "phototracker",
-    hostname: new URL(c.req.url).hostname,
+  }), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+      pragma: "no-cache",
+      expires: "0",
+    },
   });
 });
 
@@ -64,9 +112,18 @@ app.get("/developers/api", async (c) => {
 
 // API routes
 app.route("/api/auth", auth);
+app.route("/api/film/stocks", filmStocksRouter);
+app.route("/api/film/holders", filmHoldersRouter);
+app.route("/api/film/rolls", rolls);
+
+// Compatibility aliases for older clients
+app.route("/api/film-stocks", filmStocksRouter);
+app.route("/api/film-holders", filmHoldersRouter);
 app.route("/api/gear", gear);
 app.route("/api/rolls", rolls);
 app.route("/api/photographs", photos);
+app.route("/api/export", dataExport);
+app.route("/api/admin", admin);
 
 // Fallback for /api/*
 app.all("/api/*", (c) => {

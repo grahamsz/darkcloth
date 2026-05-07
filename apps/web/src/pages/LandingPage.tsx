@@ -73,7 +73,12 @@ export function LandingPage() {
   return (
     <div className="landing-shell">
       <nav className="nav" aria-label="Primary">
-        <a className="brand" href="/">Phototracker</a>
+        <a className="brand" href="/" aria-label="Darkcloth">
+          <span className="brand-wordmark" aria-hidden="true">
+            <span className="brand-wordmark-dark">dark</span>
+            <span className="brand-wordmark-cloth">cloth</span>
+          </span>
+        </a>
         <div className="nav-links">
           <Link to="/login">Sign in</Link>
           <Link className="button" to="/register">Get started</Link>
@@ -82,10 +87,16 @@ export function LandingPage() {
 
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">Film photography logbook</p>
+          <p className="eyebrow">
+            <span className="brand-wordmark" aria-label="Darkcloth">
+              <span className="brand-wordmark-dark">dark</span>
+              <span className="brand-wordmark-cloth">cloth</span>
+            </span>
+          </p>
           <h1>Track every frame from camera to contact sheet.</h1>
           <p className="lede">
-            Record film, lens, camera, exposure, GPS coordinates, notes, and reference images for every photograph.
+            A field notebook for film photography. Record film, lens, camera, exposure, GPS coordinates, notes, and
+            reference images for every photograph.
           </p>
           <div className="actions">
             <Link className="primary" to="/register">Start logging</Link>
@@ -146,8 +157,26 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="support-band" aria-labelledby="support-darkcloth-title">
+        <div className="support-copy">
+          <p className="support-kicker">Support</p>
+          <h2 id="support-darkcloth-title">Support the development of Darkcloth.</h2>
+        </div>
+        <a
+          className="secondary support-link"
+          href="https://buymeacoffee.com/grahamsz"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Buy Me a Coffee
+        </a>
+      </section>
+
       <footer className="landing-footer">
-        <span>Phototracker</span>
+        <span className="brand-wordmark" aria-label="Darkcloth">
+          <span className="brand-wordmark-dark">dark</span>
+          <span className="brand-wordmark-cloth">cloth</span>
+        </span>
         <nav aria-label="Footer">
           <Link to="/login">Sign in</Link>
           <Link to="/register">Register</Link>

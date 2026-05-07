@@ -326,7 +326,7 @@ fun CameraList(cameras: List<Camera>, onEdit: (Camera) -> Unit, onDelete: (Camer
                     }
                 }
             )
-            HorizontalDivider()
+            Divider()
         }
     }
 }
@@ -352,7 +352,7 @@ fun LensList(lenses: List<Lens>, onEdit: (Lens) -> Unit, onDelete: (Lens) -> Uni
                     }
                 }
             )
-            HorizontalDivider()
+            Divider()
         }
     }
 }
@@ -378,7 +378,7 @@ fun FilmStockList(films: List<FilmStock>, onEdit: (FilmStock) -> Unit, onDelete:
                     }
                 }
             )
-            HorizontalDivider()
+            Divider()
         }
     }
 }

@@ -1,0 +1,1 @@
+ALTER TABLE lenses ADD COLUMN flare_factor REAL NOT NULL DEFAULT 0.02;

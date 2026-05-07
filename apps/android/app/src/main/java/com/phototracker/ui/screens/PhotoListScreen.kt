@@ -45,7 +45,7 @@ fun PhotoListScreen(
                         onClick = { onPhotoClick(photo.id) },
                         onEdit = { onEditPhoto(photo.id) }
                     )
-                    HorizontalDivider()
+                    Divider()
                 }
             }
         }

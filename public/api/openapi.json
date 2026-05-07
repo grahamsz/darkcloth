@@ -6,11 +6,16 @@
     "license": {
       "name": "Proprietary"
     },
-    "description": "API for tracking film photographs — cameras, lenses, film stocks, rolls, exposures, and reference images.\n"
+    "description": "API for tracking film photographs — cameras, lenses, film stocks, development profiles, film holders, rolls, exposures, and reference images.\n"
   },
   "servers": [
     {
-      "url": "https://phototracker.graha.ms"
+      "url": "https://darkcloth.zone",
+      "description": "Primary production hostname."
+    },
+    {
+      "url": "https://phototracker.graha.ms",
+      "description": "Legacy/staging hostname during the transition."
     }
   ],
   "components": {
@@ -38,6 +43,8 @@
         "required": [
           "id",
           "email",
+          "default_timezone",
+          "auto_use_current_location",
           "created_at",
           "updated_at"
         ],
@@ -51,6 +58,19 @@
             "type": "string",
             "format": "email",
             "example": "user@example.com"
+          },
+          "default_timezone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stored IANA timezone preference. Null when unset.",
+            "example": "America/Denver"
+          },
+          "auto_use_current_location": {
+            "type": "boolean",
+            "description": "Whether new photo logs should request browser geolocation automatically.",
+            "example": false
           },
           "created_at": {
             "type": "string",
@@ -93,6 +113,65 @@
             ],
             "example": "Leica"
           },
+          "film_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sheet",
+              "roll",
+              null
+            ],
+            "description": "Controls photograph transport defaults. Sheet cameras use film holders. Roll cameras require a roll and frame number.\n"
+          },
+          "roll_format": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "35mm",
+              120,
+              220,
+              127,
+              620,
+              null
+            ],
+            "description": "Optional roll format restriction for roll cameras. Null means any roll format is accepted.\n"
+          },
+          "has_shutter": {
+            "type": "boolean",
+            "description": "Explicit shutter capability flag. When false, shutter range fields are normalized to null and supports_bulb is false."
+          },
+          "min_shutter_speed_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Minimum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+            "example": 0.00025
+          },
+          "max_shutter_speed_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Maximum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+            "example": 1
+          },
+          "supports_bulb": {
+            "type": "boolean",
+            "description": "Bulb support. Normalized to false when has_shutter is false.\n"
+          },
+          "acceptable_lens_ids": {
+            "type": "array",
+            "readOnly": true,
+            "description": "Read-only compatibility summary derived from camera_lenses. Camera pages may still show this for legacy compatibility, but compatibility writes now belong on Lens.applicable_camera_ids.\n",
+            "items": {
+              "type": "string"
+            }
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -127,7 +206,24 @@
               "number",
               "null"
             ],
+            "description": "Legacy single focal-length field retained for compatibility. For write requests where min/max fields are absent, this value is mapped to min_focal_length_mm and max_focal_length_mm.\n",
             "example": 35
+          },
+          "min_focal_length_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Minimum supported focal length (mm)",
+            "example": 24
+          },
+          "max_focal_length_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Maximum supported focal length (mm)",
+            "example": 100
           },
           "max_aperture": {
             "type": [
@@ -137,10 +233,196 @@
             "description": "e.g. \"f/1.4\"",
             "example": "f/2"
           },
+          "has_shutter": {
+            "type": "boolean",
+            "description": "Explicit shutter capability flag. When false, shutter range fields are normalized to null and supports_bulb is false."
+          },
+          "min_shutter_speed_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Minimum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+            "example": 0.00025
+          },
+          "max_shutter_speed_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Maximum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+            "example": 1
+          },
+          "supports_bulb": {
+            "type": "boolean",
+            "description": "Bulb support. Normalized to false when has_shutter is false."
+          },
+          "min_f_stop": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Minimum supported f-stop for this lens",
+            "default": 5.6,
+            "example": 5.6
+          },
+          "max_f_stop": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Maximum supported f-stop for this lens",
+            "default": 32,
+            "example": 32
+          },
+          "aperture_increment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Step between valid aperture options",
+            "enum": [
+              "full",
+              "half",
+              "third"
+            ],
+            "example": "full"
+          },
+          "flare_factor": {
+            "type": "number",
+            "description": "Lens flare factor used by BTZS exposure calculations.",
+            "default": 0.02,
+            "minimum": 0,
+            "example": 0.02
+          },
+          "applicable_camera_ids": {
+            "type": "array",
+            "description": "Authoritative camera IDs this lens is applicable to. An empty array means all cameras. Use this field to edit camera/lens compatibility.\n",
+            "items": {
+              "type": "string"
+            }
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "example": "2026-04-29T20:26:05Z"
+          }
+        }
+      },
+      "Filter": {
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "filter_factor",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "user_id": {
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "name": {
+            "type": "string",
+            "example": "Red"
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Wratten 25"
+          },
+          "filter_factor": {
+            "type": "number",
+            "description": "Exposure-adjusting factor for the filter, represented as a positive number.\n",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "example": 8
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional provenance of the factor source string.",
+            "example": "Filter factor from the common filter factors table (approximate, film-response dependent, and daylight-based)."
+          },
+          "standard_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable key of a preset entry this filter was created from.",
+            "example": "wratten_25"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional free-form filter notes."
+          },
+          "applicable_lens_ids": {
+            "type": "array",
+            "description": "Lens IDs this filter applies to. An empty array means all lenses.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          }
+        }
+      },
+      "FilterPreset": {
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "filter_factor"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "wratten_25"
+          },
+          "name": {
+            "type": "string",
+            "example": "Red"
+          },
+          "code": {
+            "type": "string",
+            "example": "Wratten 25"
+          },
+          "filter_factor": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "example": 8
+          },
+          "category": {
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -150,6 +432,8 @@
           "id",
           "user_id",
           "name",
+          "stock_type",
+          "reciprocity_p_factor",
           "created_at"
         ],
         "properties": {
@@ -173,6 +457,17 @@
             ],
             "example": 400
           },
+          "stock_type": {
+            "$ref": "#/components/schemas/FilmStockType"
+          },
+          "reciprocity_p_factor": {
+            "type": "number",
+            "description": "Exposure reciprocity P factor. Defaults to 1 for newly created film stocks and legacy rows that predate the migration.",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "default": 1,
+            "example": 1
+          },
           "process": {
             "type": [
               "string",
@@ -188,12 +483,780 @@
           }
         }
       },
+      "FilmStockType": {
+        "type": "string",
+        "enum": [
+          "color_negative",
+          "bw",
+          "color_slide",
+          "bw_slide",
+          "color_infrared",
+          "bw_infrared",
+          "other"
+        ],
+        "description": "Film stock category. The `bw` storage value represents B&W Negative; BTZS development profiles are only allowed for B&W Negative film stocks.\n"
+      },
+      "BTZSChartData": {
+        "type": "object",
+        "description": "Structured BTZS chart payloads. The API preserves arbitrary chart metadata so labels, axis titles, point series, and effective-film-speed annotations can round-trip without numeric parsing. Imported XDF film profiles usually surface two chart families: Average G / development-time and Average G / EFS.\n",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "xAxisLabel": {
+            "type": "string"
+          },
+          "yAxisLabel": {
+            "type": "string"
+          },
+          "effectiveFilmSpeed": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Numeric effective film speed when available."
+          },
+          "effectiveFilmSpeedLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text label such as `40++` or `100-`. Preserved even when effectiveFilmSpeed is absent."
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BTZSChartPoint"
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "BTZSChartPoint": {
+        "type": "object",
+        "description": "A single BTZS chart point. Imported XDF profiles commonly use Average G as the x-axis and either development time or effective film speed on the y-axis, but the API keeps arbitrary point keys intact.\n",
+        "properties": {
+          "averageG": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Average G / Average Gradient value."
+          },
+          "developmentTime": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Development time value from an Average G / development-time chart."
+          },
+          "effectiveFilmSpeed": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Effective film speed value from an Average G / EFS chart."
+          },
+          "effectiveFilmSpeedLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text label such as `40++` or `100-`."
+          },
+          "sbr": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Subject brightness range value used by other BTZS chart variants."
+          }
+        },
+        "additionalProperties": true
+      },
+      "BTZSSourceFile": {
+        "type": "object",
+        "description": "Structured source-file metadata for BTZS profiles. The API preserves arbitrary JSON objects so client-side forms can round-trip file references and notes without losing detail.\n",
+        "additionalProperties": true
+      },
+      "RawXdfMetadata": {
+        "type": "object",
+        "description": "Metadata imported from BTZS / ExpoDev XDF profiles. The Worker stores the export's display name, scaled Paper ES value, and explicit reciprocity fields alongside the raw object so BTZS development profiles can round-trip imported metadata without parsing the file format in the API layer.\n",
+        "required": [
+          "versionOrType",
+          "displayName",
+          "processLabel",
+          "paperES",
+          "reciprocityExpIndex",
+          "reciprocityGIndex",
+          "useReciprocity"
+        ],
+        "properties": {
+          "versionOrType": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "XDF version or type label."
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name chosen during export."
+          },
+          "processLabel": {
+            "type": "string",
+            "description": "Process or developer label from the export."
+          },
+          "paperES": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Scaled decimal Paper ES value preserved from the export."
+          },
+          "reciprocityExpIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4,
+            "description": "Reciprocity exposure index preserved from the export."
+          },
+          "reciprocityGIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "Reciprocity G index preserved from the export."
+          },
+          "useReciprocity": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "Reciprocity flag preserved from the export."
+          }
+        },
+        "additionalProperties": true,
+        "examples": [
+          {
+            "versionOrType": "XDF-1",
+            "displayName": "Ilford FP4+ / DD-X",
+            "processLabel": "DD-X",
+            "paperES": 1.25,
+            "reciprocityExpIndex": 0,
+            "reciprocityGIndex": 0,
+            "useReciprocity": 1
+          }
+        ]
+      },
+      "DevelopmentProfileBase": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "filmStockId",
+          "type",
+          "name",
+          "developerName",
+          "dilution",
+          "temperatureText",
+          "agitation",
+          "notes",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "userId": {
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "filmStockId": {
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "btzs"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "example": "FP4+ / DDX"
+          },
+          "developerName": {
+            "type": "string",
+            "example": "Ilford DD-X"
+          },
+          "dilution": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "1+4"
+          },
+          "temperatureText": {
+            "type": "string",
+            "example": "20C"
+          },
+          "agitation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "5 sec every 30 sec"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Fixture profile used for chart rendering."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          }
+        }
+      },
+      "SimpleDevelopmentProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DevelopmentProfileBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "timeText"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "simple"
+                ]
+              },
+              "timeText": {
+                "type": "string",
+                "example": "7:30"
+              }
+            }
+          }
+        ]
+      },
+      "BTZSDevelopmentProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DevelopmentProfileBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "filmIso",
+              "testDate",
+              "curvesText",
+              "flareDensityText",
+              "paperEsText",
+              "methodText",
+              "keyValuesText",
+              "rawXdf",
+              "chartData",
+              "sourceFiles"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "btzs"
+                ]
+              },
+              "filmIso": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "example": "400"
+              },
+              "testDate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date",
+                "example": "2026-04-29"
+              },
+              "curvesText": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "example": "Straight-line section only."
+              },
+              "flareDensityText": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "example": "0.15"
+              },
+              "paperEsText": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "example": "Grade 2"
+              },
+              "methodText": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "example": "BTZS Plotter"
+              },
+              "keyValuesText": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "example": "CI 0.56 / EFS 100-"
+              },
+              "rawXdf": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RawXdfMetadata"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "chartData": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/BTZSChartData"
+                }
+              },
+              "sourceFiles": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/BTZSSourceFile"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DevelopmentProfile": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SimpleDevelopmentProfile"
+          },
+          {
+            "$ref": "#/components/schemas/BTZSDevelopmentProfile"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "simple": "#/components/schemas/SimpleDevelopmentProfile",
+            "btzs": "#/components/schemas/BTZSDevelopmentProfile"
+          }
+        }
+      },
+      "DevelopmentProfileSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nullable profile display name for historical compatibility.",
+            "example": "D-76 1+1"
+          }
+        }
+      },
+      "FilmHolderLoadDevelopmentSummary": {
+        "type": "object",
+        "required": [
+          "label",
+          "source",
+          "minutes",
+          "time_text"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Display label for the development time summary.",
+            "example": "Development time"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "stored-btzs-calculation",
+              "development-profile-time"
+            ],
+            "description": "Where the summary value came from."
+          },
+          "minutes": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Development time in minutes, when the value came from a stored BTZS calculation.",
+            "example": 9.5
+          },
+          "time_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable development time display text.",
+            "example": "9:30"
+          }
+        }
+      },
+      "SimpleDevelopmentProfileCreate": {
+        "type": "object",
+        "required": [
+          "type",
+          "name",
+          "developerName",
+          "temperatureText",
+          "timeText"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "simple"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "developerName": {
+            "type": "string"
+          },
+          "dilution": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "temperatureText": {
+            "type": "string"
+          },
+          "agitation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeText": {
+            "type": "string"
+          }
+        }
+      },
+      "BTZSDevelopmentProfileCreate": {
+        "type": "object",
+        "required": [
+          "type",
+          "name",
+          "developerName",
+          "temperatureText"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "btzs"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "developerName": {
+            "type": "string"
+          },
+          "dilution": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "temperatureText": {
+            "type": "string"
+          },
+          "agitation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filmIso": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "testDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "curvesText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flareDensityText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paperEsText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "methodText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keyValuesText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rawXdf": {
+            "description": "BTZS-only imported XDF metadata. Simple profile creates reject this field.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RawXdfMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chartData": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BTZSChartData"
+            }
+          },
+          "sourceFiles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BTZSSourceFile"
+            }
+          }
+        }
+      },
+      "DevelopmentProfileCreate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SimpleDevelopmentProfileCreate"
+          },
+          {
+            "$ref": "#/components/schemas/BTZSDevelopmentProfileCreate"
+          }
+        ]
+      },
+      "DevelopmentProfileUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "developerName": {
+            "type": "string"
+          },
+          "dilution": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "temperatureText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agitation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Simple-profile development time text. Not valid for BTZS profiles."
+          },
+          "filmIso": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "testDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "curvesText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flareDensityText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paperEsText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "methodText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keyValuesText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chartData": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BTZSChartData"
+            }
+          },
+          "sourceFiles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BTZSSourceFile"
+            }
+          },
+          "rawXdf": {
+            "description": "BTZS-only imported XDF metadata. Simple profile updates reject this field.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RawXdfMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "DevelopmentProfileList": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DevelopmentProfile"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
       "Roll": {
         "type": "object",
         "required": [
           "id",
           "user_id",
           "name",
+          "status",
+          "push_pull_stops",
           "created_at"
         ],
         "properties": {
@@ -213,6 +1276,21 @@
             ],
             "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
+          "roll_format": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "35mm",
+              120,
+              220,
+              127,
+              620,
+              null
+            ],
+            "description": "Roll media format. Null means the roll is format-agnostic."
+          },
           "name": {
             "type": "string",
             "example": "Portra 400 #1"
@@ -225,13 +1303,550 @@
             "format": "date-time",
             "example": "2026-04-29T20:26:05Z"
           },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Timestamp when the roll was marked ready for processing.",
+            "example": null
+          },
+          "status": {
+            "$ref": "#/components/schemas/RollStatus"
+          },
+          "push_pull_stops": {
+            "type": "integer",
+            "description": "Push/pull adjustment in stops. Valid values range from -3 to 3.",
+            "enum": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3
+            ],
+            "example": 0
+          },
+          "processed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Canonical processing completion timestamp. `developed_at` remains a compatibility alias.",
+            "example": null
+          },
           "developed_at": {
             "type": [
               "string",
               "null"
             ],
             "format": "date-time",
+            "deprecated": true,
+            "description": "Compatibility alias for `processed_at` returned for older callers.",
             "example": null
+          },
+          "development_profile_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Development profile used when the roll was processed.",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "development_notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-form notes recorded when the roll was processed.",
+            "example": "Processed in DDX"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          }
+        }
+      },
+      "RollStatus": {
+        "type": "string",
+        "enum": [
+          "unexposed",
+          "exposing",
+          "finished",
+          "processed",
+          "developed"
+        ],
+        "description": "Canonical roll lifecycle status. `processed` is the canonical final state; `developed` remains a compatibility alias."
+      },
+      "FilmHolderLoadStatus": {
+        "type": "string",
+        "enum": [
+          "loaded",
+          "exposed",
+          "processed",
+          "discarded"
+        ],
+        "description": "Canonical film-holder load lifecycle status."
+      },
+      "FilmHolderLoadReferenceImageSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "content_type",
+          "width",
+          "height",
+          "thumbnail_content_type",
+          "thumbnail_width",
+          "thumbnail_height",
+          "thumbnail_url",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "MIME type for the stored display image.",
+            "example": "image/jpeg"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 3000
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 2000
+          },
+          "thumbnail_content_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "MIME type for the server-generated thumbnail variant.",
+            "example": "image/jpeg"
+          },
+          "thumbnail_width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 256
+          },
+          "thumbnail_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 171
+          },
+          "thumbnail_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Signed download URL for the thumbnail variant, when stored.",
+            "example": "https://darkcloth.zone/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?variant=thumbnail&expires=1777540800&signature=abc123"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Signed download URL for the display variant, when stored.",
+            "example": "https://darkcloth.zone/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?expires=1777540800&signature=abc123"
+          }
+        }
+      },
+      "FilmHolderLoadPhotographSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "frame_number",
+          "taken_at",
+          "camera_id",
+          "camera_name",
+          "lens_id",
+          "lens_name",
+          "reference_image"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "frame_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "12"
+          },
+          "taken_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "camera_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "camera_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Mamiya 645"
+          },
+          "lens_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "lens_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "80mm f/2.8"
+          },
+          "reference_image": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FilmHolderLoadReferenceImageSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PhotographLifecycleSummary": {
+        "type": "object",
+        "required": [
+          "loaded_at",
+          "exposed_at",
+          "processed_at",
+          "developed_at",
+          "development_profile_name"
+        ],
+        "properties": {
+          "loaded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Timestamp when the relevant roll or film-holder load was loaded.",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "exposed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Timestamp when the photograph was exposed, or the best available lifecycle source for roll-backed rows.",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "processed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Canonical processing completion timestamp.",
+            "example": null
+          },
+          "developed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "deprecated": true,
+            "description": "Compatibility alias for `processed_at`.",
+            "example": null
+          },
+          "development_profile_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nullable display name for the associated development profile, when one exists.",
+            "example": "D-76 1+1"
+          }
+        }
+      },
+      "FilmHolderLoad": {
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "film_holder_id",
+          "film_id",
+          "status",
+          "loaded_at",
+          "exposed_at",
+          "exposed_photograph_id",
+          "processed_at",
+          "development_profile_id",
+          "development_profile",
+          "development_summary",
+          "exposed_photograph",
+          "notes",
+          "created_at",
+          "updated_at",
+          "film"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "user_id": {
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "film_holder_id": {
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "film_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Film stock loaded into the holder. Null only appears for stale historical rows.",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FilmHolderLoadStatus"
+          },
+          "loaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "exposed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "exposed_photograph_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Photograph that first exposed the load.",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "processed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": null
+          },
+          "discarded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Timestamp when the load was discarded, if it was discarded.",
+            "example": null
+          },
+          "discarded_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reason recorded when the load was discarded.",
+            "example": null
+          },
+          "development_profile_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Development profile used when the load was processed.",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "development_profile": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DevelopmentProfileSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nullable summary for the associated development profile, including the profile name when available."
+          },
+          "development_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FilmHolderLoadDevelopmentSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Compact display summary for the load's development time, preferring stored BTZS minutes when available."
+          },
+          "exposed_photograph": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FilmHolderLoadPhotographSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nullable summary for the photograph that first exposed the load, including one reference image when available."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional free-form load notes."
+          },
+          "film": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FilmStock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-04-29T20:26:05Z"
+          }
+        }
+      },
+      "FilmHolder": {
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "type",
+          "created_at",
+          "current_load"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ULID",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "user_id": {
+            "type": "string",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "name": {
+            "type": "string",
+            "example": "Box of 4x5 Sheets"
+          },
+          "type": {
+            "type": "string",
+            "description": "e.g. \"127\", \"220\", \"4x5\", \"8x10\"\n",
+            "example": "4x5"
+          },
+          "width_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Optional width in millimeters",
+            "example": 152
+          },
+          "height_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Optional height in millimeters",
+            "example": 203
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional holder brand",
+            "example": "Ilford"
+          },
+          "capacity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Number of sheets per pack, if applicable",
+            "example": 50
+          },
+          "applicable_camera_ids": {
+            "type": "array",
+            "description": "Camera IDs this holder applies to. An empty array means all cameras.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "current_load": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FilmHolderLoad"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The holder's active load, if any. Discarded and processed loads remain in load_history only."
+          },
+          "load_history": {
+            "type": "array",
+            "description": "Chronological holder load history, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/FilmHolderLoad"
+            }
           },
           "created_at": {
             "type": "string",
@@ -279,6 +1894,25 @@
             ],
             "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
+          "film_holder_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For sheet-film camera shots, identifies the holder used. When supplied, the holder must already have an active load; the photo inherits that load's film stock and the load is marked exposed on first use.\n",
+            "example": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "lifecycle_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PhotographLifecycleSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Compact lifecycle timestamps hydrated from the backing roll or film-holder load. This lets the detail view show Loaded, Exposed, and Processed without extra lifecycle lookups.\n"
+          },
           "film_id": {
             "type": [
               "string",
@@ -314,23 +1948,47 @@
               "string",
               "null"
             ],
-            "description": "e.g. \"1/250\"",
+            "description": "Compatibility/display string, e.g. \"1/250\" or \"bulb\". Prefer shutter_speed_seconds and bulb_duration_seconds for calculation and validation.",
+            "deprecated": true,
             "example": "1/500"
           },
-          "iso": {
+          "shutter_speed_seconds": {
             "type": [
-              "integer",
+              "number",
               "null"
             ],
-            "example": 400
+            "description": "Calculation-friendly shutter speed in seconds. Bulb rows may mirror the measured duration here for legacy compatibility.",
+            "example": 0.004
           },
-          "exposure_compensation": {
+          "shutter_mode": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "bulb"
+            ],
+            "description": "Structured exposure mode. Bulb rows require a positive bulb_duration_seconds value."
+          },
+          "bulb_duration_seconds": {
             "type": [
-              "string",
+              "number",
               "null"
             ],
-            "description": "e.g. \"+1\", \"-0.5\"",
-            "example": "+1/3"
+            "description": "Measured bulb duration in seconds. Required when shutter_mode is bulb; null clears the bulb duration when converting to fixed.",
+            "example": 12.5
+          },
+          "exposure_entry_mode": {
+            "$ref": "#/components/schemas/ExposureEntryMode"
+          },
+          "exposure_details": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PhotographExposureDetails"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Structured historical calculation details for zone or BTZS workflows. Manual entries are null.\n"
           },
           "focal_length_mm": {
             "type": [
@@ -374,6 +2032,27 @@
             ],
             "example": "Shot at sunset."
           },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional display title. Blank strings are normalized to null."
+          },
+          "filter_ids": {
+            "type": "array",
+            "description": "Ordered filter IDs applied to the photograph, lowest position first.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "description": "Selected filter records in the same order as `filter_ids`.",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            }
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -386,10 +2065,442 @@
           },
           "images": {
             "type": "array",
-            "description": "Reference images attached to the photograph, each with a short-lived signed download URL.",
+            "description": "Reference images attached to the photograph, each with signed display, thumbnail, and optional original URLs.",
             "items": {
               "$ref": "#/components/schemas/PhotographImage"
             }
+          }
+        }
+      },
+      "ExposureEntryMode": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "zone-metering",
+          "btzs-zone-metering"
+        ],
+        "description": "Manual entries are the default when no exposure details are supplied."
+      },
+      "ManualPhotographExposureDetails": {
+        "type": "object",
+        "maxProperties": 0,
+        "additionalProperties": false,
+        "description": "Empty object accepted on write for manual exposure entries."
+      },
+      "PhotographExposureDetails": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PhotographZoneMeteringDetails"
+          },
+          {
+            "$ref": "#/components/schemas/PhotographBtzsZoneMeteringDetails"
+          }
+        ]
+      },
+      "PhotographZoneMeteringDetails": {
+        "type": "object",
+        "required": [
+          "zoneMetering"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "zoneMetering": {
+            "$ref": "#/components/schemas/PhotographZoneMeteringCalculation"
+          }
+        }
+      },
+      "PhotographZoneMeteringCalculation": {
+        "type": "object",
+        "required": [
+          "meterEV",
+          "meterISO",
+          "workingISO",
+          "targetZone",
+          "zoneAdjustedEV",
+          "targetEV",
+          "totalCompensationStops",
+          "aperture",
+          "shutterSpeed",
+          "rawShutterSpeedSeconds",
+          "finalShutterSpeedSeconds",
+          "shutterMode",
+          "bulbDurationSeconds",
+          "reciprocityApplied",
+          "warnings"
+        ],
+        "properties": {
+          "meterEV": {
+            "type": "number"
+          },
+          "meterISO": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "workingISO": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "targetZone": {
+            "type": "number"
+          },
+          "zoneAdjustedEV": {
+            "type": "number"
+          },
+          "targetEV": {
+            "type": "number"
+          },
+          "totalCompensationStops": {
+            "type": "number"
+          },
+          "aperture": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shutterSpeed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rawShutterSpeedSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "finalShutterSpeedSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "shutterMode": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "bulb"
+            ]
+          },
+          "bulbDurationSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "reciprocityApplied": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "PhotographBtzsZoneMeteringDetails": {
+        "type": "object",
+        "required": [
+          "btzsZoneMetering"
+        ],
+        "additionalProperties": false,
+        "description": "Structured historical BTZS calculation details. The API preserves hidden drafting inputs, filter metadata, and optional supported-choice metadata so BTZS workflows can round-trip without a schema migration.",
+        "properties": {
+          "btzsZoneMetering": {
+            "$ref": "#/components/schemas/PhotographBtzsZoneMeteringCalculation"
+          }
+        }
+      },
+      "PhotographBtzsZoneMeteringCalculation": {
+        "type": "object",
+        "required": [
+          "profileId",
+          "profileName",
+          "lowEV",
+          "lowZone",
+          "highEV",
+          "highZone",
+          "evRange",
+          "zoneRange",
+          "sbr",
+          "paperEs",
+          "requiredG",
+          "effectiveFilmSpeed",
+          "developmentTimeMinutes",
+          "targetEVBeforeCompensation",
+          "targetEVAfterCompensation",
+          "aperture",
+          "shutterSpeed",
+          "rawShutterSpeedSeconds",
+          "finalShutterSpeedSeconds",
+          "shutterMode",
+          "bulbDurationSeconds",
+          "reciprocityApplied",
+          "warnings"
+        ],
+        "description": "Structured BTZS calculation details. The API keeps the historical BTZS\nsummary fields, hidden workflow inputs, and optional rounded-choice\nmetadata intact, while allowing historical and future keys to\nround-trip through additionalProperties.\n",
+        "properties": {
+          "profileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meterEV": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Hidden BTZS meter EV input, when the workflow persists it."
+          },
+          "meterISO": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Hidden BTZS meter ISO input. Defaults to 100 in the web workflow."
+          },
+          "workingISO": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Computed working ISO / EFS used by the BTZS workflow."
+          },
+          "compensationStops": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Hidden compensation input persisted for draft round-tripping."
+          },
+          "filterStops": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Filter-stop contribution that was applied to the BTZS result."
+          },
+          "filterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Selected filter ids captured with the BTZS calculation."
+          },
+          "filterFactors": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Selected filter factors captured with the BTZS calculation."
+          },
+          "precedence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "aperture",
+              "shutter",
+              null
+            ],
+            "description": "Which control was used to resolve the final BTZS exposure."
+          },
+          "readingThroughSelectedFilters": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the BTZS meter reading already included selected filters."
+          },
+          "lowEV": {
+            "type": "number"
+          },
+          "lowZone": {
+            "type": "number"
+          },
+          "highEV": {
+            "type": "number"
+          },
+          "highZone": {
+            "type": "number"
+          },
+          "evRange": {
+            "type": "number"
+          },
+          "zoneRange": {
+            "type": "number"
+          },
+          "sbr": {
+            "type": "number"
+          },
+          "paperEs": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "flareFactor": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "requiredG": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "effectiveFilmSpeed": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "developmentTimeMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "targetEVBeforeCompensation": {
+            "type": "number"
+          },
+          "targetEVAfterCompensation": {
+            "type": "number"
+          },
+          "aperture": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shutterSpeed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rawShutterSpeedSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "finalShutterSpeedSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "shutterMode": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "bulb"
+            ]
+          },
+          "bulbDurationSeconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "reciprocityApplied": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "apertureChoice": {
+            "$ref": "#/components/schemas/PhotographBtzsZoneMeteringApertureChoice"
+          },
+          "shutterChoice": {
+            "$ref": "#/components/schemas/PhotographBtzsZoneMeteringShutterChoice"
+          }
+        },
+        "additionalProperties": true
+      },
+      "PhotographBtzsZoneMeteringApertureChoice": {
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "aperture",
+          "stopError",
+          "warning"
+        ],
+        "additionalProperties": true,
+        "description": "Closest supported aperture choice for a BTZS calculation.",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "aperture": {
+            "type": "number"
+          },
+          "stopError": {
+            "type": "number"
+          },
+          "warning": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PhotographBtzsZoneMeteringShutterChoice": {
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "seconds",
+          "stopError",
+          "warning"
+        ],
+        "additionalProperties": true,
+        "description": "Closest supported shutter choice for a BTZS calculation.",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "seconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "stopError": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "warning": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -430,6 +2541,58 @@
             ],
             "example": 2000
           },
+          "thumbnail_content_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "MIME type for the server-generated 256px thumbnail variant.",
+            "example": "image/jpeg"
+          },
+          "thumbnail_width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 256
+          },
+          "thumbnail_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 171
+          },
+          "thumbnail_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Signed download URL for the thumbnail variant, when stored.",
+            "example": "https://darkcloth.zone/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?variant=thumbnail&expires=1777540800&signature=abc123"
+          },
+          "original_content_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "MIME type for the optional original upload file, if stored.",
+            "example": "image/jpeg"
+          },
+          "original_width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 4032
+          },
+          "original_height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 3024
+          },
           "original_filename": {
             "type": [
               "string",
@@ -437,13 +2600,21 @@
             ],
             "example": "IMG_1234.JPG"
           },
+          "original_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Signed download URL for the original variant, when stored.",
+            "example": "https://darkcloth.zone/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?variant=original&expires=1777540800&signature=abc123"
+          },
           "url": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Signed download URL backed by R2 (short-lived, about 1 hour)",
-            "example": "https://phototracker.graha.ms/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?expires=1777540800&signature=abc123"
+            "description": "Signed download URL for the server-generated display image backed by R2 (short-lived, about 1 hour)",
+            "example": "https://darkcloth.zone/api/photographs/01ARZ3NDEKTSV4RRFFQ69G5FAV/images/01BX5ZZKBKACTAV9WEVGEMMVS0/file?expires=1777540800&signature=abc123"
           },
           "created_at": {
             "type": "string",
@@ -494,6 +2665,16 @@
           }
         }
       },
+      "Conflict": {
+        "description": "Request conflicts with the current resource state",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
       "ServiceUnavailable": {
         "description": "Image storage is unavailable",
         "content": {
@@ -508,6 +2689,22 @@
     "parameters": {
       "id": {
         "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filmStockId": {
+        "name": "filmStockId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "profileId": {
+        "name": "profileId",
         "in": "path",
         "required": true,
         "schema": {
@@ -549,6 +2746,26 @@
         "responses": {
           "200": {
             "description": "Worker is reachable",
+            "headers": {
+              "Cache-Control": {
+                "description": "Prevents browsers and intermediaries from caching reachability checks.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Pragma": {
+                "description": "Legacy no-cache directive for older clients.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Expires": {
+                "description": "Legacy expiration header to reinforce no-cache semantics.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -737,6 +2954,172 @@
             }
           }
         }
+      },
+      "patch": {
+        "operationId": "updateMe",
+        "summary": "Update current authenticated user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "New email address. Changing email requires current_password."
+                  },
+                  "current_password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Required when email is present."
+                  },
+                  "default_timezone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "IANA timezone name or null to clear the preference."
+                  },
+                  "auto_use_current_location": {
+                    "type": "boolean",
+                    "description": "Whether new photo logs should request browser geolocation automatically."
+                  }
+                },
+                "dependentRequired": {
+                  "email": [
+                    "current_password"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current user updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid current password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password": {
+      "patch": {
+        "operationId": "updatePassword",
+        "summary": "Change the current password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "current_password",
+                  "new_password"
+                ],
+                "properties": {
+                  "current_password": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid current password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/gear/cameras": {
@@ -794,12 +3177,67 @@
                 "required": [
                   "name"
                 ],
+                "description": "Camera identity and capture-capability fields. Compatibility writes are legacy-only; use Lens.applicable_camera_ids to edit camera/lens compatibility.\n",
                 "properties": {
                   "name": {
                     "type": "string"
                   },
                   "maker": {
                     "type": "string"
+                  },
+                  "film_type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "sheet",
+                      "roll",
+                      null
+                    ]
+                  },
+                  "roll_format": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "35mm",
+                      120,
+                      220,
+                      127,
+                      620,
+                      null
+                    ],
+                    "description": "Roll media format restriction. Null means any roll format is accepted."
+                  },
+                  "has_shutter": {
+                    "type": "boolean",
+                    "description": "Explicit shutter capability flag. When false, shutter range fields are normalized to null and supports_bulb is false."
+                  },
+                  "min_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Minimum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 0.00025
+                  },
+                  "max_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Maximum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 1
+                  },
+                  "supports_bulb": {
+                    "type": "boolean",
+                    "description": "Bulb support. Normalized to false when has_shutter is false."
                   }
                 }
               }
@@ -857,12 +3295,67 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "description": "Camera identity and capture-capability fields. Compatibility writes are legacy-only; use Lens.applicable_camera_ids to edit camera/lens compatibility.\n",
                 "properties": {
                   "name": {
                     "type": "string"
                   },
                   "maker": {
                     "type": "string"
+                  },
+                  "film_type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "sheet",
+                      "roll",
+                      null
+                    ]
+                  },
+                  "roll_format": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "35mm",
+                      120,
+                      220,
+                      127,
+                      620,
+                      null
+                    ],
+                    "description": "Roll media format restriction. Null clears the restriction."
+                  },
+                  "has_shutter": {
+                    "type": "boolean",
+                    "description": "Explicit shutter capability flag. When false, shutter range fields are normalized to null and supports_bulb is false."
+                  },
+                  "min_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Minimum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 0.00025
+                  },
+                  "max_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Maximum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 1
+                  },
+                  "supports_bulb": {
+                    "type": "boolean",
+                    "description": "Bulb support. Normalized to false when has_shutter is false."
                   }
                 }
               }
@@ -888,6 +3381,766 @@
       "delete": {
         "operationId": "deleteCamera",
         "summary": "Delete a camera",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/holders": {
+      "get": {
+        "operationId": "listFilmHolders",
+        "summary": "List film holders",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Film holder list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "total"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FilmHolder"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createFilmHolder",
+        "summary": "Add a film holder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Film format designation, for example \"127\", \"220\", \"4x5\", or \"8x10\".\n"
+                  },
+                  "width_mm": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Optional physical width in millimeters"
+                  },
+                  "height_mm": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Optional physical height in millimeters"
+                  },
+                  "brand": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional holder brand"
+                  },
+                  "capacity": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Optional number of sheet slots or pack capacity"
+                  },
+                  "applicable_camera_ids": {
+                    "type": "array",
+                    "description": "Camera IDs this holder applies to. An empty array means all cameras.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Film holder created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/film/holders/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "operationId": "getFilmHolder",
+        "summary": "Get a film holder",
+        "responses": {
+          "200": {
+            "description": "Film holder",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateFilmHolder",
+        "summary": "Update a film holder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Film format designation, for example \"127\", \"220\", \"4x5\", or \"8x10\".\n"
+                  },
+                  "width_mm": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Optional physical width in millimeters"
+                  },
+                  "height_mm": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Optional physical height in millimeters"
+                  },
+                  "brand": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional holder brand"
+                  },
+                  "capacity": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Optional number of sheet slots or pack capacity"
+                  },
+                  "applicable_camera_ids": {
+                    "type": "array",
+                    "description": "Camera IDs this holder applies to. An empty array means all cameras.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated film holder",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFilmHolder",
+        "summary": "Delete a film holder",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/holders/{id}/loads": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "operationId": "listFilmHolderLoads",
+        "summary": "List film holder loads",
+        "responses": {
+          "200": {
+            "description": "Film holder load history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "total"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FilmHolderLoad"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "operationId": "loadFilmHolder",
+        "summary": "Load a film holder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "film_id"
+                ],
+                "properties": {
+                  "film_id": {
+                    "type": "string",
+                    "description": "Film stock to load into the holder. The film must belong to the current user and the holder must not already have an active load."
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional notes for the new load."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Film holder loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/holders/{id}/loads/current": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "delete": {
+        "operationId": "unloadFilmHolder",
+        "summary": "Unload the current film holder load",
+        "description": "Removes the active load only when it is still loaded and has no\nphotographs. Exposed loads must be processed instead of emptied.\n",
+        "responses": {
+          "200": {
+            "description": "Film holder unloaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/holders/{id}/loads/current/discard": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "post": {
+        "operationId": "discardFilmHolderLoad",
+        "summary": "Discard the current exposed holder load",
+        "description": "Marks the current active exposed load as discarded so the holder can be\nre-used. Loaded-but-unexposed loads should still be unloaded with the\ncurrent unload endpoint. Processed loads are historical and cannot be\ndiscarded through this path.\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional discard reason. Defaults to \"Discarded after holder was re-exposed\" when omitted or blank."
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional notes to store alongside the discarded load."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Film holder load discarded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/holders/{id}/loads/current/process": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "post": {
+        "operationId": "processFilmHolderLoad",
+        "summary": "Mark the current exposed load processed",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "development_profile_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional development profile to attach when processing the load. The profile must belong to the current user and match the load's film stock."
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional notes for the processed load."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Film holder load processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/holders/{id}/loads/current/undo-exposure": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "post": {
+        "operationId": "undoFilmHolderLoadExposure",
+        "summary": "Undo exposure on the current film holder load",
+        "description": "Returns the active exposed load to loaded when the exposure has not\nyet been processed. If the exposed photograph still references this\nholder, set `clear_photograph_holder` to true so the photograph can be\ndetached in the same request.\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clear_photograph_holder": {
+                    "type": "boolean",
+                    "description": "Clear the linked photograph's film_holder_id when it still references this holder."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Film holder exposure undone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilmHolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/gear/filter_presets": {
+      "get": {
+        "operationId": "listFilterPresets",
+        "summary": "List standard filter presets",
+        "description": "Preset factors are approximate. They are film-response dependent and\nbased on daylight color-temperature workflows; use film-specific testing\nas needed.\n",
+        "responses": {
+          "200": {
+            "description": "Standard filter preset list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FilterPreset"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/gear/filters": {
+      "get": {
+        "operationId": "listFilters",
+        "summary": "List filters",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filter list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "total"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Filter"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createFilter",
+        "summary": "Add a filter",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Create either a custom filter (`name` + `filter_factor`) or a preset-based filter (set `standard_key` and optionally override `name`, `filter_factor`, or `code`). Optional `notes` and `applicable_lens_ids` may also be set.\n",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "filter_factor": {
+                    "type": "number",
+                    "description": "Positive finite factor (for example `8` or `2.5`).\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "standard_key": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional preset key used as a basis."
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional free-form filter notes."
+                  },
+                  "applicable_lens_ids": {
+                    "type": "array",
+                    "description": "Lens IDs this filter applies to. Empty means all.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Filter created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Filter"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/gear/filters/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "get": {
+        "operationId": "getFilter",
+        "summary": "Get a filter",
+        "responses": {
+          "200": {
+            "description": "Filter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Filter"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateFilter",
+        "summary": "Update a filter",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "filter_factor": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "standard_key": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional preset key used to identify source factor behavior.\n"
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional free-form filter notes."
+                  },
+                  "applicable_lens_ids": {
+                    "type": "array",
+                    "description": "Lens IDs this filter applies to. Empty means all.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated filter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Filter"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFilter",
+        "summary": "Delete a filter",
         "responses": {
           "204": {
             "description": "Deleted"
@@ -958,10 +4211,76 @@
                     "type": "string"
                   },
                   "focal_length_mm": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Legacy single focal-length value; if min/max fields are not provided, this is mapped to both min_focal_length_mm and max_focal_length_mm.\n"
                   },
                   "max_aperture": {
                     "type": "string"
+                  },
+                  "min_f_stop": {
+                    "type": "number",
+                    "default": 5.6,
+                    "example": 5.6
+                  },
+                  "max_f_stop": {
+                    "type": "number",
+                    "default": 32,
+                    "example": 32
+                  },
+                  "min_focal_length_mm": {
+                    "type": "number"
+                  },
+                  "max_focal_length_mm": {
+                    "type": "number"
+                  },
+                  "applicable_camera_ids": {
+                    "type": "array",
+                    "description": "Camera IDs this lens is applicable to. An empty array means all cameras.",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "has_shutter": {
+                    "type": "boolean",
+                    "description": "Explicit shutter capability flag. When false, shutter range fields are normalized to null and supports_bulb is false."
+                  },
+                  "min_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Minimum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 0.00025
+                  },
+                  "max_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Maximum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 1
+                  },
+                  "supports_bulb": {
+                    "type": "boolean",
+                    "description": "Bulb support. Normalized to false when has_shutter is false."
+                  },
+                  "aperture_increment": {
+                    "type": "string",
+                    "enum": [
+                      "full",
+                      "half",
+                      "third"
+                    ]
+                  },
+                  "flare_factor": {
+                    "type": "number",
+                    "description": "Lens flare factor used by BTZS exposure calculations.",
+                    "default": 0.02,
+                    "minimum": 0
                   }
                 }
               }
@@ -1024,10 +4343,71 @@
                     "type": "string"
                   },
                   "focal_length_mm": {
+                    "type": "number",
+                    "description": "Legacy single focal-length value; if min/max fields are not provided, this is mapped to both min_focal_length_mm and max_focal_length_mm.\n"
+                  },
+                  "min_focal_length_mm": {
+                    "type": "number"
+                  },
+                  "max_focal_length_mm": {
                     "type": "number"
                   },
                   "max_aperture": {
                     "type": "string"
+                  },
+                  "min_f_stop": {
+                    "type": "number"
+                  },
+                  "max_f_stop": {
+                    "type": "number"
+                  },
+                  "has_shutter": {
+                    "type": "boolean",
+                    "description": "Explicit shutter capability flag. When false, shutter range fields are normalized to null and supports_bulb is false."
+                  },
+                  "min_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Minimum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 0.00025
+                  },
+                  "max_shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Maximum supported shutter speed in seconds. Valid only when has_shutter is true.\n",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "example": 1
+                  },
+                  "supports_bulb": {
+                    "type": "boolean",
+                    "description": "Bulb support. Normalized to false when has_shutter is false."
+                  },
+                  "aperture_increment": {
+                    "type": "string",
+                    "enum": [
+                      "full",
+                      "half",
+                      "third"
+                    ]
+                  },
+                  "flare_factor": {
+                    "type": "number",
+                    "description": "Lens flare factor used by BTZS exposure calculations.",
+                    "minimum": 0
+                  },
+                  "applicable_camera_ids": {
+                    "type": "array",
+                    "description": "Camera IDs this lens is applicable to. An empty array means all cameras.",
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -1063,7 +4443,7 @@
         }
       }
     },
-    "/api/gear/films": {
+    "/api/film/stocks": {
       "get": {
         "operationId": "listFilmStocks",
         "summary": "List film stocks",
@@ -1109,6 +4489,7 @@
       "post": {
         "operationId": "createFilmStock",
         "summary": "Add a film stock",
+        "description": "`stock_type` is optional on create and defaults to `other` when omitted. `reciprocity_p_factor` is optional and defaults to `1` when omitted. Use `bw` (B&W Negative) to unlock BTZS development profiles.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -1127,6 +4508,16 @@
                   },
                   "process": {
                     "type": "string"
+                  },
+                  "stock_type": {
+                    "$ref": "#/components/schemas/FilmStockType"
+                  },
+                  "reciprocity_p_factor": {
+                    "type": "number",
+                    "description": "Exposure reciprocity P factor. Omit on create to use the default value of 1.",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "default": 1
                   }
                 }
               }
@@ -1150,7 +4541,7 @@
         }
       }
     },
-    "/api/gear/films/{id}": {
+    "/api/film/stocks/{id}": {
       "parameters": [
         {
           "$ref": "#/components/parameters/id"
@@ -1193,6 +4584,15 @@
                   },
                   "process": {
                     "type": "string"
+                  },
+                  "stock_type": {
+                    "$ref": "#/components/schemas/FilmStockType"
+                  },
+                  "reciprocity_p_factor": {
+                    "type": "number",
+                    "description": "Exposure reciprocity P factor. Send a finite positive number greater than 0 to update the stored value.",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
                   }
                 }
               }
@@ -1228,7 +4628,155 @@
         }
       }
     },
-    "/api/rolls": {
+    "/api/film/stocks/{filmStockId}/development-profiles": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/filmStockId"
+        }
+      ],
+      "get": {
+        "operationId": "listDevelopmentProfiles",
+        "summary": "List development profiles for a film stock",
+        "responses": {
+          "200": {
+            "description": "Development profile list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevelopmentProfileList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDevelopmentProfile",
+        "summary": "Create a development profile",
+        "description": "Simple profiles are allowed for all film stocks. BTZS / XDF profiles are only allowed when the parent film stock is classified as `bw` (B&W Negative).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevelopmentProfileCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Development profile created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevelopmentProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/stocks/{filmStockId}/development-profiles/{profileId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/filmStockId"
+        },
+        {
+          "$ref": "#/components/parameters/profileId"
+        }
+      ],
+      "get": {
+        "operationId": "getDevelopmentProfile",
+        "summary": "Get a development profile",
+        "responses": {
+          "200": {
+            "description": "Development profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevelopmentProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDevelopmentProfile",
+        "summary": "Update a development profile",
+        "description": "Simple profiles are allowed for all film stocks. BTZS / XDF profiles are only allowed when the parent film stock is classified as `bw` (B&W Negative).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevelopmentProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated development profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevelopmentProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDevelopmentProfile",
+        "summary": "Delete a development profile",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/rolls": {
       "get": {
         "operationId": "listRolls",
         "summary": "List rolls",
@@ -1245,6 +4793,21 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "roll_format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "35mm",
+                120,
+                220,
+                127,
+                620
+              ]
+            },
+            "description": "Filter rolls by media format."
           }
         ],
         "responses": {
@@ -1295,11 +4858,82 @@
                     "type": "string"
                   },
                   "film_id": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "roll_format": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "35mm",
+                      120,
+                      220,
+                      127,
+                      620,
+                      null
+                    ],
+                    "description": "Roll media format. Null means the roll is format-agnostic."
                   },
                   "loaded_at": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "date-time"
+                  },
+                  "finished_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "processed_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "developed_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "deprecated": true,
+                    "description": "Compatibility alias for `processed_at`."
+                  },
+                  "development_profile_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Development profile used when the roll is processed."
+                  },
+                  "development_notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Free-form notes recorded when the roll is processed."
+                  },
+                  "push_pull_stops": {
+                    "type": "integer",
+                    "enum": [
+                      -3,
+                      -2,
+                      -1,
+                      0,
+                      1,
+                      2,
+                      3
+                    ],
+                    "default": 0
                   }
                 }
               }
@@ -1323,7 +4957,7 @@
         }
       }
     },
-    "/api/rolls/{id}": {
+    "/api/film/rolls/{id}": {
       "parameters": [
         {
           "$ref": "#/components/parameters/id"
@@ -1350,7 +4984,8 @@
       },
       "patch": {
         "operationId": "updateRoll",
-        "summary": "Update a roll (e.g. mark developed)",
+        "summary": "Update a roll",
+        "description": "Update roll metadata or lifecycle timestamps. `developed_at` remains a compatibility alias for `processed_at`. When lifecycle timestamps are changed, the roll status is updated to the matching current lifecycle state.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -1367,7 +5002,36 @@
                       "null"
                     ]
                   },
+                  "roll_format": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "35mm",
+                      120,
+                      220,
+                      127,
+                      620,
+                      null
+                    ],
+                    "description": "Roll media format. Null clears the stored format."
+                  },
                   "loaded_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "finished_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "processed_at": {
                     "type": [
                       "string",
                       "null"
@@ -1379,7 +5043,35 @@
                       "string",
                       "null"
                     ],
-                    "format": "date-time"
+                    "format": "date-time",
+                    "deprecated": true,
+                    "description": "Compatibility alias for `processed_at`."
+                  },
+                  "development_profile_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Development profile used when the roll is processed. The profile must belong to the current user and match the roll's film stock when the roll has a film stock."
+                  },
+                  "development_notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Free-form notes recorded when the roll is processed."
+                  },
+                  "push_pull_stops": {
+                    "type": "integer",
+                    "enum": [
+                      -3,
+                      -2,
+                      -1,
+                      0,
+                      1,
+                      2,
+                      3
+                    ]
                   }
                 }
               }
@@ -1415,10 +5107,161 @@
         }
       }
     },
+    "/api/film/rolls/{id}/finish": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "post": {
+        "operationId": "finishRoll",
+        "summary": "Mark a roll finished",
+        "description": "Marks the roll ready for processing. The timestamp defaults to now when omitted.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "finished_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "Optional timestamp override when marking the roll finished."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Roll marked finished",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roll"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/rolls/{id}/process": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "post": {
+        "operationId": "processRoll",
+        "summary": "Mark a roll processed",
+        "description": "Marks the roll processed/developed. The processed timestamp defaults to now when omitted.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "processed_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "Optional processing timestamp override."
+                  },
+                  "developed_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "deprecated": true,
+                    "description": "Compatibility alias for `processed_at`."
+                  },
+                  "development_profile_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional development profile to attach when processing the roll. The profile must belong to the current user and match the roll's film stock when the roll has a film stock."
+                  },
+                  "development_notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional notes recorded when the roll is processed."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Roll processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roll"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/film/rolls/{id}/reopen": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/id"
+        }
+      ],
+      "post": {
+        "operationId": "reopenRoll",
+        "summary": "Reopen a roll",
+        "description": "Reopens a finished or processed roll without erasing processing history fields.",
+        "responses": {
+          "200": {
+            "description": "Roll reopened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roll"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/photographs": {
       "get": {
         "operationId": "listPhotographs",
         "summary": "List photographs",
+        "description": "Returns hydrated photograph records with batch-loaded images and filters. When `roll_id` is provided, the results are ordered by frame number when available, then `taken_at`, then `created_at` so roll-detail consumers can render a roll timeline without per-photo fetches.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/limit"
@@ -1431,7 +5274,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Roll-specific filter. When present, the result ordering favors frame number, then capture time, then creation time."
           },
           {
             "name": "camera_id",
@@ -1449,6 +5293,13 @@
           },
           {
             "name": "film_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "film_holder_id",
             "in": "query",
             "schema": {
               "type": "string"
@@ -1497,35 +5348,100 @@
                 "type": "object",
                 "properties": {
                   "roll_id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Required for roll-camera shots. Must reference a roll belonging to the current user. When a camera is selected, the roll must be compatible with that camera's roll format. The roll's film stock is inferred for film_id. Not accepted for sheet cameras.\n"
                   },
                   "camera_id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "If the selected camera has explicit lens compatibility rows, lens_id must be one of those acceptable lens IDs.\n"
                   },
                   "lens_id": {
                     "type": "string"
                   },
+                  "filter_ids": {
+                    "type": "array",
+                    "description": "Ordered filter IDs applied to the photograph, from first to last. Non-empty arrays require lens_id, and each filter must belong to the current user.\n",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "film_holder_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional for sheet-camera shots. When omitted, null, or blank, no holder is stored. If provided, it must reference a film holder belonging to the current user with an active load and, when a camera is selected, the holder must be applicable to that camera. The holder's active load film stock is applied to the photo, and the load is marked exposed on first use. Non-null values are rejected for roll cameras.\n"
+                  },
+                  "confirm_reexposure": {
+                    "type": "boolean",
+                    "description": "When true and the holder currently has an exposed load, discard that load and expose a fresh one using the same film stock."
+                  },
                   "film_id": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "When roll_id or film_holder_id is provided, this must be omitted or match the derived film stock. Otherwise it may be set directly for legacy or camera-agnostic writes."
                   },
                   "frame_number": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Required for roll-camera shots. Must reference a roll belonging to the current user. Not accepted for sheet cameras."
                   },
                   "taken_at": {
                     "type": "string",
                     "format": "date-time"
                   },
                   "aperture": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Default f-stop when omitted or empty",
+                    "default": "f/5.6",
+                    "example": "f/5.6"
+                  },
+                  "shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Calculation-friendly shutter speed in seconds."
+                  },
+                  "shutter_mode": {
+                    "type": "string",
+                    "enum": [
+                      "fixed",
+                      "bulb"
+                    ],
+                    "description": "Structured exposure mode. Bulb rows require a positive bulb_duration_seconds value."
+                  },
+                  "bulb_duration_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Measured bulb duration in seconds. Required when shutter_mode is bulb."
+                  },
+                  "exposure_entry_mode": {
+                    "$ref": "#/components/schemas/ExposureEntryMode"
+                  },
+                  "exposure_details": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/PhotographExposureDetails"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ManualPhotographExposureDetails"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Structured historical calculation details. Manual entries may omit this field, send null, or send an empty object.\n"
                   },
                   "shutter_speed": {
-                    "type": "string"
-                  },
-                  "iso": {
-                    "type": "integer"
-                  },
-                  "exposure_compensation": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Compatibility/display string only."
                   },
                   "focal_length_mm": {
                     "type": "number"
@@ -1544,6 +5460,13 @@
                   },
                   "notes": {
                     "type": "string"
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional display title. Blank strings are normalized to null."
                   }
                 }
               }
@@ -1606,13 +5529,15 @@
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "description": "Required for roll-camera shots. Must reference a roll belonging to the current user. When a camera is selected, the roll must be compatible with that camera's roll format. The roll's film stock is inferred for film_id. Not accepted for sheet cameras.\n"
                   },
                   "camera_id": {
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "description": "If the selected camera has explicit lens compatibility rows, lens_id must be one of those acceptable lens IDs.\n"
                   },
                   "lens_id": {
                     "type": [
@@ -1620,17 +5545,37 @@
                       "null"
                     ]
                   },
+                  "filter_ids": {
+                    "type": "array",
+                    "description": "Ordered filter IDs applied to the photograph, from first to last. Omit this field to leave existing filters unchanged, or send an empty array to clear them. Non-empty arrays require lens_id, and each filter must belong to the current user.\n",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "film_holder_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional for sheet-camera shots. When omitted, null, or blank, no holder is stored. If provided, it must reference a film holder belonging to the current user with an active load and, when a camera is selected, the holder must be applicable to that camera. The holder's active load film stock is applied to the photo, and the load is marked exposed on first use. Non-null values are rejected for roll cameras.\n"
+                  },
+                  "confirm_reexposure": {
+                    "type": "boolean",
+                    "description": "When true and the holder currently has an exposed load, discard that load and expose a fresh one using the same film stock."
+                  },
                   "film_id": {
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "description": "When roll_id or film_holder_id is provided, this must be omitted or match the derived film stock. Otherwise it may be set directly for legacy or camera-agnostic writes."
                   },
                   "frame_number": {
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "description": "Required for roll-camera shots. Must reference a roll belonging to the current user. Not accepted for sheet cameras."
                   },
                   "taken_at": {
                     "type": [
@@ -1645,23 +5590,51 @@
                       "null"
                     ]
                   },
+                  "shutter_speed_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Calculation-friendly shutter speed in seconds."
+                  },
+                  "shutter_mode": {
+                    "type": "string",
+                    "enum": [
+                      "fixed",
+                      "bulb"
+                    ],
+                    "description": "Structured exposure mode. Bulb rows require a positive bulb_duration_seconds value."
+                  },
+                  "bulb_duration_seconds": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Measured bulb duration in seconds. Required when shutter_mode is bulb; null clears the bulb duration when switching to fixed."
+                  },
+                  "exposure_entry_mode": {
+                    "$ref": "#/components/schemas/ExposureEntryMode"
+                  },
+                  "exposure_details": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/PhotographExposureDetails"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ManualPhotographExposureDetails"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Structured historical calculation details. Manual entries may omit this field, send null, or send an empty object.\n"
+                  },
                   "shutter_speed": {
                     "type": [
                       "string",
                       "null"
-                    ]
-                  },
-                  "iso": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  },
-                  "exposure_compensation": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    ],
+                    "description": "Compatibility/display string only."
                   },
                   "focal_length_mm": {
                     "type": [
@@ -1698,6 +5671,13 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional display title. Blank strings are normalized to null."
                   }
                 }
               }
@@ -1772,20 +5752,33 @@
       "post": {
         "operationId": "uploadPhotographImage",
         "summary": "Upload a reference image for a photograph",
-        "description": "Upload a reference scan or contact print. Multipart form upload.\nThe `url` field in the response is a short-lived signed download URL.\n",
+        "description": "Upload a reference scan or contact print. Multipart form upload.\nProvide `original` as the preferred source file. Legacy `display` or\n`file` uploads remain accepted as source aliases. The Worker generates\ndisplay and thumbnail variants server-side and stores the source upload\nas the original when present. Browser-resized width/height metadata is\nignored.\n",
         "requestBody": {
           "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "file"
-                ],
                 "properties": {
+                  "original": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Preferred source upload. The Worker stores this as the original object and derives display/thumbnail variants from it."
+                  },
+                  "display": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Legacy alias for `original`, kept for backwards compatibility."
+                  },
                   "file": {
                     "type": "string",
-                    "format": "binary"
+                    "format": "binary",
+                    "description": "Legacy alias for `original`, kept for backwards compatibility."
+                  },
+                  "thumbnail": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Legacy browser-resized thumbnail upload. Accepted for compatibility, but the Worker generates its own stored thumbnail."
                   }
                 }
               }
@@ -1829,6 +5822,20 @@
           }
         },
         {
+          "name": "variant",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "display",
+              "thumbnail",
+              "original"
+            ]
+          },
+          "description": "Optional image variant to stream. Omit for the display image."
+        },
+        {
           "name": "expires",
           "in": "query",
           "required": true,
@@ -1848,7 +5855,7 @@
       "get": {
         "operationId": "downloadPhotographImage",
         "summary": "Download an image",
-        "description": "Signed URL target returned in `PhotographImage.url`.",
+        "description": "Signed URL target returned in `PhotographImage.url`, `thumbnail_url`, or `original_url`.",
         "security": [],
         "responses": {
           "200": {

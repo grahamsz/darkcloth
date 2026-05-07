@@ -58,7 +58,7 @@ fun RollListScreen(viewModel: RollViewModel = viewModel()) {
                             onDevelop = { viewModel.markRollDeveloped(it) },
                             onEdit = { editingRoll = roll }
                         )
-                        HorizontalDivider()
+                        Divider()
                     }
                 }
             }

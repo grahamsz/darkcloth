@@ -4,15 +4,21 @@
   "type": "module",
   "scripts": {
     "web:build": "npm run build --prefix apps/web",
+    "web:test": "npm test --prefix apps/web",
+    "web:test:pwa-offline": "npm run test:pwa-offline --prefix apps/web",
+    "web:verify": "npm run web:build && npm run web:test && npm run web:test:pwa-offline",
     "web:dev": "npm run dev --prefix apps/web",
     "api:publish": "node scripts/publish-openapi.mjs",
+    "android:publish-apk": "node scripts/publish-android-apk.mjs",
     "dev": "wrangler dev",
-    "deploy": "npm run web:build && wrangler deploy",
+    "test:api": "node scripts/test-api-flows.mjs",
+    "deploy": "npm run web:verify && npm run android:publish-apk && npm run d1:migrations:apply:remote && wrangler deploy",
     "types": "wrangler types",
-    "d1:migrations:apply": "wrangler d1 migrations apply phototracker"
+    "d1:migrations:apply": "wrangler d1 migrations apply phototracker",
+    "d1:migrations:apply:remote": "wrangler d1 migrations apply phototracker --remote"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.40.3"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

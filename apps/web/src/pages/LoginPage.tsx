@@ -27,7 +27,13 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <a className="brand" href="/">Phototracker</a>
+        <Link className="brand" to="/" aria-label="Darkcloth">
+          <span className="brand-wordmark" aria-hidden="true">
+            <span className="brand-wordmark-dark">dark</span>
+            <span className="brand-wordmark-cloth">cloth</span>
+          </span>
+        </Link>
+        <p className="auth-tagline">A field notebook for film photography.</p>
         <h1>Sign in</h1>
 
         <form onSubmit={handleSubmit} className="auth-form">

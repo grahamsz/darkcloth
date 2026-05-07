@@ -1,7 +1,5 @@
 # Gas City
-.beads/*
-!.beads/config.yaml
-!.beads/metadata.json
+.beads/
 
 # Beads / Dolt files (added by bd init)
 .dolt/
@@ -12,10 +10,19 @@
 node_modules/
 dist/
 *.tsbuildinfo
+.cache/
 
 # Wrangler
 .wrangler/
 .dev.vars
+
+# Android
+apps/android/.gradle/
+apps/android/app/build/
+*.jks
+
+# Test artifacts
+apps/web/test-results/
 
 # Runtime
 .runtime/

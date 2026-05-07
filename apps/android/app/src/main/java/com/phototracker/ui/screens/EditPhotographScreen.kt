@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +31,7 @@ fun EditPhotographScreen(
                 title = { Text("Edit Photograph") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -126,19 +126,19 @@ fun EditPhotographScreen(
                     )
 
                     SectionLabel("Gear")
-                    GearDropdown(
+                    EditGearDropdown(
                         label = "Camera",
                         options = uiState.cameras.map { it.id to it.name },
                         selectedId = uiState.selectedCameraId,
                         onSelect = { viewModel.selectCamera(it) }
                     )
-                    GearDropdown(
+                    EditGearDropdown(
                         label = "Lens",
                         options = uiState.lenses.map { it.id to it.name },
                         selectedId = uiState.selectedLensId,
                         onSelect = { viewModel.selectLens(it) }
                     )
-                    GearDropdown(
+                    EditGearDropdown(
                         label = "Film",
                         options = uiState.films.map { it.id to it.name },
                         selectedId = uiState.selectedFilmId,
@@ -172,7 +172,7 @@ private fun SectionLabel(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GearDropdown(
+private fun EditGearDropdown(
     label: String,
     options: List<Pair<String, String>>,
     selectedId: String?,

@@ -3,7 +3,7 @@
 Production is intended to run as a Cloudflare Worker custom domain at:
 
 ```text
-https://phototracker.graha.ms
+https://darkcloth.zone
 ```
 
 Required Cloudflare resources:
@@ -11,7 +11,17 @@ Required Cloudflare resources:
 - Worker: `phototracker`
 - D1 database: `phototracker`
 - R2 bucket: `phototracker-reference-images` once R2 is enabled on the account
-- Custom domain route: `phototracker.graha.ms`
+- Custom domain route: `darkcloth.zone`
+- Custom domain route: `phototracker.graha.ms` as the legacy/staging hostname during the transition
+
+Cloudflare dashboard prerequisites:
+
+- Attach `darkcloth.zone` to the `phototracker` Worker as a Custom Domain. Cloudflare creates the DNS records and issues the certificate for the domain automatically once the route exists.
+- Keep `phototracker.graha.ms` attached only if you still want the legacy/staging hostname online during the transition.
+- Create the `phototracker` D1 database and make sure the Worker keeps its `DB` binding.
+- Enable R2 on the account, create the `phototracker-reference-images` bucket, and keep the Worker `REFERENCE_IMAGES` binding pointed at it.
+- Enable the Images binding on the Worker and keep the `IMAGES` binding in `wrangler.toml`.
+- Set `JWT_SECRET` with `wrangler secret put JWT_SECRET` or through the Worker secrets UI before deploying.
 
 Use Wrangler from the project root:
 
@@ -22,7 +32,7 @@ wrangler d1 migrations apply phototracker
 wrangler deploy
 ```
 
-R2 creation currently requires enabling R2 in the Cloudflare dashboard first.
+This deployment serves the app from `/`, the developer docs from `/developers` and `/developers/api`, and the API docs and health check from `/api/openapi.yaml`, `/api/openapi.json`, and `/api/health` on `darkcloth.zone`.
 
 ## Secrets
 

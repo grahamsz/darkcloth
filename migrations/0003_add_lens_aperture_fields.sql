@@ -1,0 +1,3 @@
+ALTER TABLE lenses ADD COLUMN min_f_stop REAL DEFAULT 5.6;
+ALTER TABLE lenses ADD COLUMN max_f_stop REAL DEFAULT 32;
+ALTER TABLE lenses ADD COLUMN aperture_increment TEXT DEFAULT 'full';
