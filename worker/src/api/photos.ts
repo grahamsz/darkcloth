@@ -95,6 +95,7 @@ function toPhotographLifecycleSummary(row: PhotographLifecycleSummaryRow): Photo
 }
 
 const IMAGE_URL_TTL_SECONDS = 60 * 60;
+const IMAGE_URL_EXPIRES_BUCKET_SECONDS = 60 * 60;
 const SIGNED_IMAGE_PATH_RE = /^\/api\/photographs\/[^/]+\/images\/[^/]+\/file$/;
 const IMAGE_CONTENT_TYPE_BY_EXT: Record<string, string> = {
   jpg: "image/jpeg",
@@ -1138,8 +1139,13 @@ function constantTimeEqual(a: string, b: string) {
   return diff === 0;
 }
 
+function signedImageUrlExpiresAt(nowSeconds = Math.floor(Date.now() / 1000)) {
+  const bucketStart = Math.floor(nowSeconds / IMAGE_URL_EXPIRES_BUCKET_SECONDS) * IMAGE_URL_EXPIRES_BUCKET_SECONDS;
+  return bucketStart + IMAGE_URL_TTL_SECONDS + IMAGE_URL_EXPIRES_BUCKET_SECONDS;
+}
+
 async function signedImageUrl(c: PhotoContext, userId: string, photographId: string, imageId: string) {
-  const expires = Math.floor(Date.now() / 1000) + IMAGE_URL_TTL_SECONDS;
+  const expires = signedImageUrlExpiresAt();
   const url = new URL(
     `/api/photographs/${encodeURIComponent(photographId)}/images/${encodeURIComponent(imageId)}/file`,
     c.req.url,
@@ -1159,7 +1165,7 @@ async function signedVariantImageUrl(
   imageId: string,
   variant: Exclude<ImageVariant, "display">,
 ) {
-  const expires = Math.floor(Date.now() / 1000) + IMAGE_URL_TTL_SECONDS;
+  const expires = signedImageUrlExpiresAt();
   const url = new URL(
     `/api/photographs/${encodeURIComponent(photographId)}/images/${encodeURIComponent(imageId)}/file`,
     c.req.url,
