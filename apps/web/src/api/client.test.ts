@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, type FilmHolder, type FilmHolderLoad, type FilmStock, type Roll } from "./client";
+import { api, clearApiResourceCache, type FilmHolder, type FilmHolderLoad, type FilmStock, type Roll } from "./client";
 
 afterEach(() => {
+  clearApiResourceCache();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -191,6 +192,69 @@ describe("api client health checks", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("api client resource list cache", () => {
+  it("reuses authenticated list responses inside the resource cache window", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      items: [{ id: "camera-1", name: "Camera" }],
+      total: 1,
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    stubAuthedStorage("token-123");
+
+    const first = await api.listCameras();
+    const second = await api.listCameras();
+
+    expect(first).toBe(second);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidates related cached lists after a successful mutation", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        items: [{ id: "roll-1", name: "Roll 1" }],
+        total: 1,
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(createRollResponse({
+        id: "roll-2",
+        name: "Roll 2",
+      })), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        items: [{ id: "roll-1", name: "Roll 1" }, { id: "roll-2", name: "Roll 2" }],
+        total: 2,
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    stubAuthedStorage("token-123");
+
+    await api.listRolls();
+    await api.createRoll({
+      name: "Roll 2",
+      film_id: "film-1",
+      roll_format: "120",
+    });
+    const refreshed = await api.listRolls();
+
+    expect(refreshed.items).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      "/api/film/rolls",
+      "/api/film/rolls",
+      "/api/film/rolls",
+    ]);
   });
 });
 

@@ -2,6 +2,113 @@ import { buildPhotographImageUploadFormData, type PreparedPhotographImageUpload 
 
 const TOKEN_KEY = "pt_token";
 const READ_REQUEST_TIMEOUT_MS = 2_500;
+const RESOURCE_LIST_CACHE_TTL_MS = 10 * 60 * 1000;
+const RESOURCE_CACHE_BROADCAST_CHANNEL = "darkcloth-api-resource-cache";
+
+type ResourceCacheMessage = {
+  type: "invalidate";
+  token: string | null;
+  resources: string[];
+  sentAt: number;
+};
+
+type CachedResourceEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+const resourceListCache = new Map<string, CachedResourceEntry<unknown>>();
+let resourceCacheBroadcast: BroadcastChannel | null | undefined;
+
+function currentAuthCacheScope() {
+  return getToken();
+}
+
+function resourceCacheKey(resource: string, path: string, token = currentAuthCacheScope()) {
+  return `${token ?? "anonymous"} ${resource} ${path}`;
+}
+
+function getResourceBroadcastChannel() {
+  if (resourceCacheBroadcast !== undefined) return resourceCacheBroadcast;
+  if (typeof BroadcastChannel === "undefined") {
+    resourceCacheBroadcast = null;
+    return resourceCacheBroadcast;
+  }
+
+  resourceCacheBroadcast = new BroadcastChannel(RESOURCE_CACHE_BROADCAST_CHANNEL);
+  resourceCacheBroadcast.addEventListener("message", (event: MessageEvent<ResourceCacheMessage>) => {
+    const message = event.data;
+    if (message?.type !== "invalidate") return;
+    invalidateResourceListCache(message.resources, { broadcast: false, token: message.token });
+  });
+  return resourceCacheBroadcast;
+}
+
+function invalidateResourceListCache(
+  resources: string[],
+  options: { broadcast?: boolean; token?: string | null } = {},
+) {
+  const token = options.token === undefined ? currentAuthCacheScope() : options.token;
+  const resourceSet = new Set(resources);
+
+  for (const key of resourceListCache.keys()) {
+    const [, resource] = key.match(/^[^ ]+ ([^ ]+) /) ?? [];
+    if (resource && resourceSet.has(resource)) {
+      resourceListCache.delete(key);
+    }
+  }
+
+  if (options.broadcast === false) return;
+  getResourceBroadcastChannel()?.postMessage({
+    type: "invalidate",
+    token,
+    resources,
+    sentAt: Date.now(),
+  } satisfies ResourceCacheMessage);
+}
+
+async function cachedListRequest<T>(resource: string, path: string): Promise<T> {
+  const token = currentAuthCacheScope();
+  const key = resourceCacheKey(resource, path, token);
+  const cached = resourceListCache.get(key) as CachedResourceEntry<T> | undefined;
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const value = await request<T>(path);
+  resourceListCache.set(key, {
+    value,
+    expiresAt: now + RESOURCE_LIST_CACHE_TTL_MS,
+  });
+  return value;
+}
+
+async function invalidateAfter<T>(operation: Promise<T>, resources: string[]) {
+  const value = await operation;
+  invalidateResourceListCache(resources);
+  return value;
+}
+
+export function clearApiResourceCache() {
+  resourceListCache.clear();
+  invalidateResourceListCache([
+    "cameras",
+    "lenses",
+    "filmHolders",
+    "filmHolderLoads",
+    "filters",
+    "filmStocks",
+    "developmentProfiles",
+    "rolls",
+    "photographs",
+    "photographImages",
+  ]);
+}
+
+export function invalidateApiResourceCache(resources: string[]) {
+  invalidateResourceListCache(resources);
+}
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -9,10 +116,12 @@ export function getToken(): string | null {
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  clearApiResourceCache();
 }
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  clearApiResourceCache();
 }
 
 export async function downloadAuthenticatedBlob(path: string): Promise<Blob> {
@@ -837,10 +946,10 @@ export const api = {
 
   me: () => request<User>("/auth/me"),
   updateMe: (data: UpdateMePayload) =>
-    request<User>("/auth/me", {
+    invalidateAfter(request<User>("/auth/me", {
       method: "PATCH",
       body: JSON.stringify(data),
-    }),
+    }), ["auth"]),
   updatePassword: (data: UpdatePasswordPayload) =>
     request<User>("/auth/password", {
       method: "PATCH",
@@ -848,59 +957,59 @@ export const api = {
     }),
 
   // Gear — cameras
-  listCameras: () => request<ListResponse<Camera>>("/gear/cameras"),
+  listCameras: () => cachedListRequest<ListResponse<Camera>>("cameras", "/gear/cameras"),
   getCamera: (id: string) => request<Camera>(`/gear/cameras/${id}`),
   createCamera: (data: CameraWritePayload & { name: string }) =>
-    request<Camera>("/gear/cameras", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<Camera>("/gear/cameras", { method: "POST", body: JSON.stringify(data) }), ["cameras", "photographs"]),
   updateCamera: (id: string, data: CameraWritePayload) =>
-    request<Camera>(`/gear/cameras/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    invalidateAfter(request<Camera>(`/gear/cameras/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["cameras", "photographs"]),
   deleteCamera: (id: string) =>
-    request<void>(`/gear/cameras/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/gear/cameras/${id}`, { method: "DELETE" }), ["cameras", "photographs"]),
 
   // Gear — film holders
-  listFilmHolders: () => request<ListResponse<FilmHolder>>("/film/holders"),
+  listFilmHolders: () => cachedListRequest<ListResponse<FilmHolder>>("filmHolders", "/film/holders"),
   createFilmHolder: (data: FilmHolderWritePayload & { name: string }) =>
-    request<FilmHolder>("/film/holders", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<FilmHolder>("/film/holders", { method: "POST", body: JSON.stringify(data) }), ["filmHolders"]),
   getFilmHolder: (id: string) => request<FilmHolder>(`/film/holders/${id}`),
   updateFilmHolder: (id: string, data: FilmHolderWritePayload) =>
-    request<FilmHolder>(`/film/holders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  listFilmHolderLoads: (id: string) => request<ListResponse<FilmHolderLoad>>(`/film/holders/${id}/loads`),
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["filmHolders", "photographs"]),
+  listFilmHolderLoads: (id: string) => cachedListRequest<ListResponse<FilmHolderLoad>>("filmHolderLoads", `/film/holders/${id}/loads`),
   loadFilmHolder: (id: string, data: { film_id: string; notes?: string | null }) =>
-    request<FilmHolder>(`/film/holders/${id}/loads`, { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}/loads`, { method: "POST", body: JSON.stringify(data) }), ["filmHolders", "filmHolderLoads", "photographs"]),
   unloadFilmHolder: (id: string) =>
-    request<FilmHolder>(`/film/holders/${id}/loads/current`, { method: "DELETE" }),
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}/loads/current`, { method: "DELETE" }), ["filmHolders", "filmHolderLoads", "photographs"]),
   discardFilmHolderLoad: (id: string, data?: FilmHolderLoadDiscardPayload) =>
-    request<FilmHolder>(`/film/holders/${id}/loads/current/discard`, {
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}/loads/current/discard`, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-    }),
+    }), ["filmHolders", "filmHolderLoads", "photographs"]),
   processFilmHolderLoad: (id: string, data?: { development_profile_id?: string | null; notes?: string | null }) =>
-    request<FilmHolder>(`/film/holders/${id}/loads/current/process`, {
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}/loads/current/process`, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-    }),
+    }), ["filmHolders", "filmHolderLoads", "photographs"]),
   undoFilmHolderExposure: (id: string, data?: { clear_photograph_holder?: boolean }) =>
-    request<FilmHolder>(`/film/holders/${id}/loads/current/undo-exposure`, {
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}/loads/current/undo-exposure`, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-    }),
+    }), ["filmHolders", "filmHolderLoads", "photographs"]),
   unprocessFilmHolderLoad: (id: string, loadId: string) =>
-    request<FilmHolder>(`/film/holders/${id}/loads/${loadId}/unprocess`, { method: "POST" }),
+    invalidateAfter(request<FilmHolder>(`/film/holders/${id}/loads/${loadId}/unprocess`, { method: "POST" }), ["filmHolders", "filmHolderLoads", "photographs"]),
   deleteFilmHolder: (id: string) =>
-    request<void>(`/film/holders/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/film/holders/${id}`, { method: "DELETE" }), ["filmHolders", "filmHolderLoads", "photographs"]),
 
   // Gear — lenses
-  listLenses: () => request<ListResponse<Lens>>("/gear/lenses"),
+  listLenses: () => cachedListRequest<ListResponse<Lens>>("lenses", "/gear/lenses"),
   getLens: (id: string) => request<Lens>(`/gear/lenses/${id}`),
   createLens: (data: { name: string; focal_length_mm?: number; min_focal_length_mm?: number; max_focal_length_mm?: number; min_f_stop?: number; max_f_stop?: number; aperture_increment?: ApertureIncrement; flare_factor?: number; has_shutter?: boolean; min_shutter_speed_seconds?: number | null; max_shutter_speed_seconds?: number | null; supports_bulb?: boolean; applicable_camera_ids?: string[] }) =>
-    request<Lens>("/gear/lenses", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<Lens>("/gear/lenses", { method: "POST", body: JSON.stringify(data) }), ["lenses", "cameras", "photographs"]),
   updateLens: (id: string, data: { name?: string; focal_length_mm?: number; min_focal_length_mm?: number; max_focal_length_mm?: number; min_f_stop?: number; max_f_stop?: number; aperture_increment?: ApertureIncrement; flare_factor?: number; has_shutter?: boolean; min_shutter_speed_seconds?: number | null; max_shutter_speed_seconds?: number | null; supports_bulb?: boolean; applicable_camera_ids?: string[] }) =>
-    request<Lens>(`/gear/lenses/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    invalidateAfter(request<Lens>(`/gear/lenses/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["lenses", "cameras", "photographs"]),
   deleteLens: (id: string) =>
-    request<void>(`/gear/lenses/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/gear/lenses/${id}`, { method: "DELETE" }), ["lenses", "cameras", "photographs"]),
 
   // Gear — filters and presets
-  listFilterPresets: () => request<{ items: FilterPreset[] }>("/gear/filter_presets"),
+  listFilterPresets: () => cachedListRequest<{ items: FilterPreset[] }>("filterPresets", "/gear/filter_presets"),
   listFilters: (params?: { limit?: number; offset?: number }) => {
     const p = new URLSearchParams();
     if (params) {
@@ -908,25 +1017,25 @@ export const api = {
       if (typeof params.offset === "number") p.set("offset", String(params.offset));
     }
     const qs = p.toString() ? `?${p}` : "";
-    return request<ListResponse<Filter>>(`/gear/filters${qs}`);
+    return cachedListRequest<ListResponse<Filter>>("filters", `/gear/filters${qs}`);
   },
   getFilter: (id: string) => request<Filter>(`/gear/filters/${id}`),
   createFilter: (data: FilterWritePayload) =>
-    request<Filter>("/gear/filters", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<Filter>("/gear/filters", { method: "POST", body: JSON.stringify(data) }), ["filters", "photographs"]),
   updateFilter: (id: string, data: FilterWritePayload) =>
-    request<Filter>(`/gear/filters/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    invalidateAfter(request<Filter>(`/gear/filters/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["filters", "photographs"]),
   deleteFilter: (id: string) =>
-    request<void>(`/gear/filters/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/gear/filters/${id}`, { method: "DELETE" }), ["filters", "photographs"]),
 
   // Film stocks
-  listFilmStocks: () => request<ListResponse<FilmStock>>("/film/stocks"),
+  listFilmStocks: () => cachedListRequest<ListResponse<FilmStock>>("filmStocks", "/film/stocks"),
   getFilmStock: (id: string) => request<FilmStock>(`/film/stocks/${id}`),
   createFilmStock: (data: { name: string; iso?: number; process?: string; stock_type?: FilmStockType; reciprocity_p_factor?: number; spectral_response_preset?: FilmSpectralResponseKey | null; simulate_spectral_response?: boolean }) =>
-    request<FilmStock>("/film/stocks", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<FilmStock>("/film/stocks", { method: "POST", body: JSON.stringify(data) }), ["filmStocks", "rolls", "filmHolders", "photographs"]),
   updateFilmStock: (id: string, data: { name?: string; iso?: number; process?: string; stock_type?: FilmStockType; reciprocity_p_factor?: number; spectral_response_preset?: FilmSpectralResponseKey | null; simulate_spectral_response?: boolean }) =>
-    request<FilmStock>(`/film/stocks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    invalidateAfter(request<FilmStock>(`/film/stocks/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["filmStocks", "rolls", "filmHolders", "photographs"]),
   deleteFilmStock: (id: string) =>
-    request<void>(`/film/stocks/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/film/stocks/${id}`, { method: "DELETE" }), ["filmStocks", "rolls", "filmHolders", "photographs", "developmentProfiles"]),
 
   // Film stocks — development profiles
   listDevelopmentProfiles: (filmStockId: string, params?: { limit?: number; offset?: number }) => {
@@ -936,20 +1045,20 @@ export const api = {
       if (typeof params.offset === "number") p.set("offset", String(params.offset));
     }
     const qs = p.toString() ? `?${p}` : "";
-    return request<ListResponse<DevelopmentProfile>>(`/film/stocks/${filmStockId}/development-profiles${qs}`);
+    return cachedListRequest<ListResponse<DevelopmentProfile>>("developmentProfiles", `/film/stocks/${filmStockId}/development-profiles${qs}`);
   },
   createDevelopmentProfile: (filmStockId: string, data: DevelopmentProfileCreate) =>
-    request<DevelopmentProfile>(`/film/stocks/${filmStockId}/development-profiles`, {
+    invalidateAfter(request<DevelopmentProfile>(`/film/stocks/${filmStockId}/development-profiles`, {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    }), ["developmentProfiles", "filmStocks", "rolls", "filmHolders"]),
   updateDevelopmentProfile: (filmStockId: string, profileId: string, data: DevelopmentProfileUpdate) =>
-    request<DevelopmentProfile>(`/film/stocks/${filmStockId}/development-profiles/${profileId}`, {
+    invalidateAfter(request<DevelopmentProfile>(`/film/stocks/${filmStockId}/development-profiles/${profileId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
-    }),
+    }), ["developmentProfiles", "filmStocks", "rolls", "filmHolders"]),
   deleteDevelopmentProfile: (filmStockId: string, profileId: string) =>
-    request<void>(`/film/stocks/${filmStockId}/development-profiles/${profileId}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/film/stocks/${filmStockId}/development-profiles/${profileId}`, { method: "DELETE" }), ["developmentProfiles", "filmStocks", "rolls", "filmHolders"]),
 
   // Backwards-compatible aliases
   listFilms: () => api.listFilmStocks(),
@@ -963,34 +1072,34 @@ export const api = {
     if (params?.film_id) p.set("film_id", params.film_id);
     if (params?.roll_format) p.set("roll_format", params.roll_format);
     const qs = p.toString() ? `?${p}` : "";
-    return request<ListResponse<Roll>>(`/film/rolls${qs}`);
+    return cachedListRequest<ListResponse<Roll>>("rolls", `/film/rolls${qs}`);
   },
   getRoll: (id: string) => request<Roll>(`/film/rolls/${id}`),
   createRoll: (data: RollWritePayload & { name: string }) =>
-    request<Roll>("/film/rolls", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<Roll>("/film/rolls", { method: "POST", body: JSON.stringify(data) }), ["rolls", "photographs"]),
   updateRoll: (id: string, data: RollWritePayload) =>
-    request<Roll>(`/film/rolls/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    invalidateAfter(request<Roll>(`/film/rolls/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["rolls", "photographs"]),
   finishRoll: (id: string, data?: { finished_at?: string | null }) =>
-    request<Roll>(`/film/rolls/${id}/finish`, {
+    invalidateAfter(request<Roll>(`/film/rolls/${id}/finish`, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-    }),
+    }), ["rolls", "photographs"]),
   processRoll: (id: string, data?: {
     processed_at?: string | null;
     developed_at?: string | null;
     development_profile_id?: string | null;
     development_notes?: string | null;
   }) =>
-    request<Roll>(`/film/rolls/${id}/process`, {
+    invalidateAfter(request<Roll>(`/film/rolls/${id}/process`, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-    }),
+    }), ["rolls", "photographs"]),
   reopenRoll: (id: string) =>
-    request<Roll>(`/film/rolls/${id}/reopen`, {
+    invalidateAfter(request<Roll>(`/film/rolls/${id}/reopen`, {
       method: "POST",
-    }),
+    }), ["rolls", "photographs"]),
   deleteRoll: (id: string) =>
-    request<void>(`/film/rolls/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/film/rolls/${id}`, { method: "DELETE" }), ["rolls", "photographs"]),
 
   // Photographs
   listPhotographs: (params?: {
@@ -1013,36 +1122,36 @@ export const api = {
       }
     }
     const qs = p.toString() ? `?${p}` : "";
-    return request<ListResponse<Photograph>>(`/photographs${qs}`);
+    return cachedListRequest<ListResponse<Photograph>>("photographs", `/photographs${qs}`);
   },
   createPhotograph: (data: PhotographWritePayload) =>
-    request<Photograph>("/photographs", { method: "POST", body: JSON.stringify(data) }),
+    invalidateAfter(request<Photograph>("/photographs", { method: "POST", body: JSON.stringify(data) }), ["photographs", "filmHolders", "filmHolderLoads", "rolls"]),
   getPhotograph: (id: string) => request<Photograph>(`/photographs/${id}`),
   updatePhotograph: (id: string, data: PhotographWritePayload) =>
-    request<Photograph>(`/photographs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    invalidateAfter(request<Photograph>(`/photographs/${id}`, { method: "PATCH", body: JSON.stringify(data) }), ["photographs", "filmHolders", "filmHolderLoads", "rolls"]),
   deletePhotograph: (id: string) =>
-    request<void>(`/photographs/${id}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/photographs/${id}`, { method: "DELETE" }), ["photographs", "filmHolders", "filmHolderLoads", "rolls", "photographImages"]),
 
   // Photograph images
   listPhotographImages: (photoId: string) =>
-    request<{ items: PhotographImage[] }>(`/photographs/${photoId}/images`),
+    cachedListRequest<{ items: PhotographImage[] }>("photographImages", `/photographs/${photoId}/images`),
   uploadPhotographImage: (photoId: string, upload: PreparedPhotographImageUpload) => {
     const form = buildPhotographImageUploadFormData(upload);
-    return request<PhotographImage>(`/photographs/${photoId}/images`, {
+    return invalidateAfter(request<PhotographImage>(`/photographs/${photoId}/images`, {
       method: "POST",
       body: form,
-    });
+    }), ["photographs", "photographImages"]);
   },
   updatePhotographImageDisplay: (photoId: string, imageId: string, display: File) => {
     const form = new FormData();
     form.append("display", display, display.name);
-    return request<PhotographImage>(`/photographs/${photoId}/images/${imageId}/display`, {
+    return invalidateAfter(request<PhotographImage>(`/photographs/${photoId}/images/${imageId}/display`, {
       method: "POST",
       body: form,
-    });
+    }), ["photographs", "photographImages"]);
   },
   deletePhotographImage: (photoId: string, imageId: string) =>
-    request<void>(`/photographs/${photoId}/images/${imageId}`, { method: "DELETE" }),
+    invalidateAfter(request<void>(`/photographs/${photoId}/images/${imageId}`, { method: "DELETE" }), ["photographs", "photographImages"]),
 
   exportDataWorkbook: () => downloadAuthenticatedBlob("/export/xlsx"),
 
