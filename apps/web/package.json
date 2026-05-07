@@ -27,5 +27,6 @@
     "vite": "^6.3.3",
     "vitest": "^2.1.9",
     "yaml": "^2.8.3"
-  }
+  },
+  "license": "AGPL-3.0-or-later"
 }

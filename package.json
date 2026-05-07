@@ -26,5 +26,6 @@
     "jose": "^6.2.3",
     "ulid": "^3.0.2",
     "yaml": "^2.8.3"
-  }
+  },
+  "license": "AGPL-3.0-or-later"
 }

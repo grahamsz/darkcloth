@@ -4,6 +4,15 @@ A field notebook for film photography.
 
 Film photograph tracking application for `darkcloth.zone`.
 
+## License
+
+Darkcloth is licensed under the GNU Affero General Public License v3.0 or later
+(`AGPL-3.0-or-later`). See `LICENSE`.
+
+Darkcloth is the project name and `darkcloth.zone` is the official hosted
+instance. If you publish a modified hosted version, make it clear that it is an
+independent fork and not the official Darkcloth service.
+
 ## Runtime
 
 - Cloudflare Worker for API and app routing.
