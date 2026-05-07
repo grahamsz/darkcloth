@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api/client";
+import { api, invalidateApiResourceCache } from "../api/client";
 import type { Camera, Lens, FilmStock, Roll, FilmHolder, Filter } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { useConnectivity } from "../contexts/ConnectivityContext";
@@ -421,6 +421,7 @@ function CamerasSection() {
     let active = true;
     setLoading(true);
     setLoadError(null);
+    invalidateApiResourceCache(["cameras", "lenses"]);
 
     (async () => {
       try {
@@ -652,6 +653,7 @@ function LensesSection() {
   };
 
   useEffect(() => {
+    invalidateApiResourceCache(["lenses", "cameras"]);
     Promise.all([
       api.listLenses(),
       api.listCameras().catch(async () => ({ items: await readCachedCameras(user) })),
@@ -941,6 +943,7 @@ function FiltersSection() {
   );
 
   useEffect(() => {
+    invalidateApiResourceCache(["filters", "lenses"]);
     Promise.all([
       api.listFilters(),
       api.listLenses().catch(async () => ({ items: await readCachedLenses(user) })),
@@ -1053,6 +1056,7 @@ function FilmStocksSection() {
     setLoading(true);
     setLoadError(null);
     setUsingOfflineCache(false);
+    invalidateApiResourceCache(["filmStocks"]);
 
     api.listFilmStocks()
       .then(r => {
@@ -1126,6 +1130,7 @@ function RollsSection() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
+    invalidateApiResourceCache(["rolls", "filmStocks"]);
     Promise.all([
       api.listRolls(),
       api.listFilmStocks().catch(async () => ({ items: await readCachedFilmStocks(user) })),
@@ -1216,6 +1221,7 @@ function FilmHoldersSection() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    invalidateApiResourceCache(["filmHolders"]);
     api.listFilmHolders()
       .then(r => setItems(r.items))
       .catch(async e => {
