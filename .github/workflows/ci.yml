@@ -35,5 +35,11 @@ jobs:
       - name: Install Playwright browser
         run: npx --prefix apps/web playwright install --with-deps chromium
 
-      - name: Run web verification
-        run: npm run web:verify
+      - name: Build web app
+        run: npm run web:build
+
+      - name: Run web unit tests
+        run: npm run web:test
+
+      - name: Run PWA offline tests
+        run: npm run web:test:pwa-offline

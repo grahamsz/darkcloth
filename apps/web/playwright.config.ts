@@ -15,6 +15,7 @@ export default defineConfig({
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
+    stderr: process.env.CI ? "ignore" : "pipe",
   },
   projects: [
     {
