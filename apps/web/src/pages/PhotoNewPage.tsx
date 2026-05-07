@@ -7,19 +7,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { useConnectivity } from "../contexts/ConnectivityContext";
 import { schedulePhotographImageDisplayUpdate } from "../deferredPhotographImageDisplay";
 import {
-  readCachedCameras,
-  readCachedFilmHolders,
-  readCachedFilmStocks,
-  readCachedFilters,
-  readCachedLenses,
-  readCachedPhotographs,
-  readCachedRolls,
-} from "../offline/cache";
-import {
   queueOfflinePhotographCreate,
   queueOfflinePhotographImageUpload,
 } from "../offline/sync";
 import { createRollForConnectivity, loadFilmHolderForConnectivity } from "../offline/actions";
+import { loadPhotoLogResources, loadRecentPhotographsForCamera } from "../offline/resourceLoaders";
 import {
   getApertureChoiceOptions,
   getCameraShutterCapability,
@@ -311,34 +303,32 @@ export function PhotoNewPage() {
   }, [createdPhotoId, referenceImageReviewQueue, referenceImageUploads]);
 
   useEffect(() => {
-    Promise.all([
-      api.listCameras().then(r => setCameras(r.items)).catch(async () => setCameras(await readCachedCameras(user))),
-      api.listLenses()
-        .then((r) => setLenses(r.items))
-        .catch(async () => setLenses(await readCachedLenses(user)))
-        .finally(() => setLensesLoaded(true)),
-      api.listFilters({ limit: 200 })
-        .then((r) => {
-          setFilters(r.items);
-          setFiltersLoaded(true);
-          setFiltersLoadError(null);
-        })
-        .catch(async (err) => {
-          const cached = await readCachedFilters(user);
-          setFilters(cached);
-          setFiltersLoaded(cached.length > 0);
-          setFiltersLoadError(cached.length > 0 ? null : err instanceof Error ? err.message : "Failed to load filters.");
-        }),
-      api.listFilmStocks().then(r => setFilms(r.items)).catch(async () => setFilms(await readCachedFilmStocks(user))),
-      api.listFilmHolders()
-        .then((r) => setFilmHolders(r.items))
-        .catch(async () => setFilmHolders(await readCachedFilmHolders(user)))
-        .finally(() => setFilmHoldersLoaded(true)),
-      api.listRolls()
-        .then((r) => setRolls(r.items))
-        .catch(async () => setRolls(await readCachedRolls(user)))
-        .finally(() => setRollsLoaded(true)),
-    ]);
+    let active = true;
+    loadPhotoLogResources({ transportStatus: connectivityState.transportStatus, user })
+      .then((resources) => {
+        if (!active) return;
+        setCameras(resources.cameras);
+        setLenses(resources.lenses);
+        setFilters(resources.filters);
+        setFiltersLoaded(resources.filtersLoaded);
+        setFiltersLoadError(resources.filtersLoadError);
+        setFilms(resources.films);
+        setFilmHolders(resources.filmHolders);
+        setRolls(resources.rolls);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setFiltersLoadError(err instanceof Error ? err.message : "Failed to load photo resources.");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLensesLoaded(true);
+        setFilmHoldersLoaded(true);
+        setRollsLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
   }, [connectivityState.transportStatus, user]);
 
   const sortedFilmHolders = useMemo(() => sortByName(filmHolders), [filmHolders]);
@@ -372,23 +362,22 @@ export function PhotoNewPage() {
 
     let active = true;
     setRecentCameraPhotographsCameraId(null);
-    api.listPhotographs({ camera_id: cameraId, limit: 100 })
-      .then((response) => {
+    loadRecentPhotographsForCamera({ transportStatus: connectivityState.transportStatus, user }, cameraId)
+      .then((photographs) => {
         if (!active) return;
-        setRecentCameraPhotographs(sortPhotographsByRecency(response.items));
+        setRecentCameraPhotographs(sortPhotographsByRecency(photographs));
         setRecentCameraPhotographsCameraId(cameraId);
       })
-      .catch(async () => {
-        const cached = await readCachedPhotographs(user);
+      .catch(() => {
         if (!active) return;
-        setRecentCameraPhotographs(sortPhotographsByRecency(cached.filter((photo) => photo.camera_id === cameraId)));
+        setRecentCameraPhotographs([]);
         setRecentCameraPhotographsCameraId(cameraId);
       });
 
     return () => {
       active = false;
     };
-  }, [selectedCamera?.id, user]);
+  }, [connectivityState.transportStatus, selectedCamera?.id, user]);
   useEffect(() => {
     const cameraId = selectedCamera?.id ?? null;
     if (!cameraId || selectedCamera?.film_type !== "roll") return;

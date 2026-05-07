@@ -75,17 +75,8 @@ import {
   formatPhotographImageLabel,
   getPhotographImageOriginalUrl,
 } from "../photoReferenceImages";
-import {
-  readCachedCameras,
-  readCachedFilmHolders,
-  readCachedFilmStocks,
-  readCachedFilters,
-  readCachedLenses,
-  readCachedPhotograph,
-  readCachedPhotographImages,
-  readCachedRolls,
-} from "../offline/cache";
 import { updatePhotographForConnectivity } from "../offline/actions";
+import { loadPhotographEditResources } from "../offline/resourceLoaders";
 
 // Route-level orchestration for editing a photo. Shared media/exposure rules live in src/photo*.ts.
 function toFormState(p: Photograph) {
@@ -145,73 +136,36 @@ export function PhotoEditPage() {
 
   useEffect(() => {
     if (!id) return;
-    if (connectivityState.transportStatus === "offline" && user) {
-      Promise.all([
-        readCachedPhotograph(user, id),
-        readCachedPhotographImages(user, id),
-        readCachedCameras(user),
-        readCachedLenses(user),
-        readCachedFilters(user),
-        readCachedFilmStocks(user),
-        readCachedFilmHolders(user),
-        readCachedRolls(user),
-      ]).then(([cachedPhoto, images, cachedCameras, cachedLenses, cachedFilters, cachedFilms, cachedFilmHolders, cachedRolls]) => {
-        if (!cachedPhoto) {
-          setError("This photograph is not cached for offline editing.");
-          return;
-        }
-        setCameras(cachedCameras);
-        setLenses(cachedLenses);
-        setFilters(cachedFilters);
-        setFiltersLoaded(true);
-        setFiltersLoadError(null);
-        setFilms(cachedFilms);
-        setFilmHolders(cachedFilmHolders);
-        setRolls(cachedRolls);
-        setPhoto(cachedPhoto);
-        initialLensIdRef.current = cachedPhoto.lens_id;
-        initialCameraIdRef.current = cachedPhoto.camera_id;
-        initialFilmIdRef.current = cachedPhoto.film_id;
-        initialFilmHolderIdRef.current = cachedPhoto.film_holder_id;
-        initialRollIdRef.current = cachedPhoto.roll_id;
-        initialFrameNumberRef.current = cachedPhoto.frame_number;
-        setForm(toFormState(cachedPhoto));
-        setReferenceImages(images.length > 0 ? images : cachedPhoto.images?.items ?? []);
-      }).catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load cached photograph.");
+    let active = true;
+    loadPhotographEditResources({ transportStatus: connectivityState.transportStatus, user }, id)
+      .then((resources) => {
+        if (!active) return;
+        const loadedPhoto = resources.photograph;
+        setCameras(resources.cameras);
+        setLenses(resources.lenses);
+        setFilters(resources.filters);
+        setFiltersLoaded(resources.filtersLoaded);
+        setFiltersLoadError(resources.filtersLoadError);
+        setFilms(resources.films);
+        setFilmHolders(resources.filmHolders);
+        setRolls(resources.rolls);
+        setPhoto(loadedPhoto);
+        initialLensIdRef.current = loadedPhoto.lens_id;
+        initialCameraIdRef.current = loadedPhoto.camera_id;
+        initialFilmIdRef.current = loadedPhoto.film_id;
+        initialFilmHolderIdRef.current = loadedPhoto.film_holder_id;
+        initialRollIdRef.current = loadedPhoto.roll_id;
+        initialFrameNumberRef.current = loadedPhoto.frame_number;
+        setForm(toFormState(loadedPhoto));
+        setReferenceImages(resources.images.length > 0 ? resources.images : loadedPhoto.images?.items ?? []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "Failed to load photograph.");
       });
-      return;
-    }
-    Promise.all([
-      api.getPhotograph(id),
-      api.listPhotographImages(id).catch(() => ({ items: [] as PhotographImage[] })),
-      api.listCameras().then(r => setCameras(r.items)).catch(() => null),
-      api.listLenses().then(r => setLenses(r.items)).catch(() => null),
-      api.listFilters({ limit: 200 })
-        .then((r) => {
-          setFilters(r.items);
-          setFiltersLoaded(true);
-          setFiltersLoadError(null);
-        })
-        .catch((err) => {
-          setFilters([]);
-          setFiltersLoaded(false);
-          setFiltersLoadError(err instanceof Error ? err.message : "Failed to load filters.");
-        }),
-      api.listFilmStocks().then(r => setFilms(r.items)).catch(() => null),
-      api.listFilmHolders().then(r => setFilmHolders(r.items)).catch(() => null),
-      api.listRolls().then(r => setRolls(r.items)).catch(() => null),
-    ]).then(([photo, images]) => {
-      setPhoto(photo);
-      initialLensIdRef.current = photo.lens_id;
-      initialCameraIdRef.current = photo.camera_id;
-      initialFilmIdRef.current = photo.film_id;
-      initialFilmHolderIdRef.current = photo.film_holder_id;
-      initialRollIdRef.current = photo.roll_id;
-      initialFrameNumberRef.current = photo.frame_number;
-      setForm(toFormState(photo));
-      setReferenceImages(images.items.length > 0 ? images.items : photo.images?.items ?? []);
-    });
+    return () => {
+      active = false;
+    };
   }, [connectivityState.transportStatus, id, user]);
 
   const sortedFilmHolders = useMemo(() => sortByName(filmHolders), [filmHolders]);
