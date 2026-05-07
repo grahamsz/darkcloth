@@ -21,7 +21,6 @@ const app = new Hono<{ Bindings: Env }>();
 
 const CORS_ORIGINS = new Set([
   "https://darkcloth.zone",
-  "https://phototracker.graha.ms",
 ]);
 
 function resolveCorsOrigin(origin: string) {

@@ -4,8 +4,6 @@ A field notebook for film photography.
 
 Film photograph tracking application for `darkcloth.zone`.
 
-`phototracker.graha.ms` remains available as a legacy/staging hostname during the transition.
-
 ## Runtime
 
 - Cloudflare Worker for API and app routing.
@@ -30,6 +28,5 @@ wrangler deploy
 Production custom domains:
 
 - `darkcloth.zone` primary
-- `phototracker.graha.ms` legacy/staging
 
 Before image upload work ships, enable R2 and Images on the Cloudflare account and add the `REFERENCE_IMAGES` bucket binding plus the `IMAGES` binding.

@@ -22,7 +22,7 @@ The OpenAPI contract declares this as `bearerAuth` and applies it globally. Publ
 
 JWTs are still keyed by `sub`. The `email` claim is informational and can lag after a profile update, so clients should treat the returned `user` object from `/api/auth/me` as the source of truth after editing profile fields.
 
-These bearer tokens are host-agnostic; the same token works against both `darkcloth.zone` and `phototracker.graha.ms` while the legacy host remains online.
+These bearer tokens are host-agnostic, but clients should use `darkcloth.zone` as the canonical host.
 
 ## Error Shape
 

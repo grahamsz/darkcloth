@@ -7,8 +7,6 @@ The public API is published from the Cloudflare Worker.
 - Health: `https://darkcloth.zone/api/health`
 - Documentation: `https://darkcloth.zone/developers`
 
-`https://phototracker.graha.ms` remains available as a legacy/staging hostname while the cutover is in progress.
-
 The canonical contract lives in `openapi/phototracker.v1.yaml`. Published asset copies live under `public/api/openapi.yaml` and `public/api/openapi.json`; the Worker serves those files at `/api/openapi.yaml` and `/api/openapi.json`.
 
 The `/developers` route serves an interactive documentation page powered by Redoc.

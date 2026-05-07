@@ -9,8 +9,6 @@ info:
 servers:
   - url: https://darkcloth.zone
     description: Primary production hostname.
-  - url: https://phototracker.graha.ms
-    description: Legacy/staging hostname during the transition.
 
 components:
   securitySchemes:

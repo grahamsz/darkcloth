@@ -9,7 +9,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
-    private const val BASE_URL = "https://phototracker.graha.ms/"
+    private const val BASE_URL = "https://darkcloth.zone/"
 
     private fun getOkHttpClient(authManager: AuthManager): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
