@@ -24,6 +24,7 @@ import {
   readCachedPhotographImages,
   readCachedRolls,
 } from "../offline/cache";
+import { deletePhotographForConnectivity } from "../offline/actions";
 import { queueOfflinePhotographImageUpload } from "../offline/sync";
 import {
   buildPhotographExposureSummary,
@@ -257,15 +258,18 @@ function PhotoDetailView() {
   }, [images]);
 
   const handleDelete = async () => {
-    if (isOffline) {
-      setDeleteError("Delete actions are disabled while offline.");
+    if (isOffline && !photo?.id.startsWith("local-photo-")) {
+      setDeleteError("Only photographs created while offline can be deleted while offline.");
       return;
     }
     if (!id || !confirm("Delete this photograph?")) return;
     setDeleting(true);
     setDeleteError(null);
     try {
-      await api.deletePhotograph(id);
+      await deletePhotographForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        id,
+      );
       navigate("/app/photos", { replace: true });
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Could not delete this photograph.");
@@ -460,7 +464,7 @@ function PhotoDetailView() {
         </div>
         <div className="page-header-actions photo-page-header-actions">
           <Link to={`/app/photos/${photo.id}?edit=1`} className="btn-secondary photo-edit-action">Edit</Link>
-          <button type="button" className="btn-danger-ghost photo-delete-action" onClick={handleDelete} disabled={deleting || isOffline}>
+          <button type="button" className="btn-danger-ghost photo-delete-action" onClick={handleDelete} disabled={deleting || (isOffline && !photo.id.startsWith("local-photo-"))}>
             {deleting ? "Deleting…" : "Delete"}
           </button>
         </div>

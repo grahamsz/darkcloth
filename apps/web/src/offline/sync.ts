@@ -522,6 +522,62 @@ export async function queueOfflinePhotographImageUpload(
   return withLocalImagePreview(image, queuedUploadPreviewFile(upload));
 }
 
+export async function deleteOfflineLocalPhotograph(
+  user: Pick<User, "id">,
+  photographId: string,
+): Promise<void> {
+  if (!photographId.startsWith("local-photo-")) {
+    throw new Error("Only photographs created while offline can be deleted while offline.");
+  }
+
+  const db = await openOfflineDatabase();
+  if (!db) throw new Error("IndexedDB is not available.");
+
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([
+      OFFLINE_STORE_NAMES.photographs,
+      OFFLINE_STORE_NAMES.syncQueue,
+      OFFLINE_STORE_NAMES.referenceImageMetadata,
+      OFFLINE_STORE_NAMES.referenceImageBlobs,
+    ], "readwrite");
+    tx.objectStore(OFFLINE_STORE_NAMES.photographs).delete(photographId);
+
+    const queueStore = tx.objectStore(OFFLINE_STORE_NAMES.syncQueue);
+    const queueRequest = queueStore.getAll();
+    queueRequest.onsuccess = () => {
+      for (const entry of queueRequest.result as SyncQueueEntry[]) {
+        if (entry.entityType === "photo" && entry.entityId === photographId) {
+          queueStore.delete(entry.id);
+          continue;
+        }
+        if (entry.entityType !== "photo_image") continue;
+        const payload = entry.payload as { photographId?: string };
+        if (payload.photographId === photographId) queueStore.delete(entry.id);
+      }
+    };
+
+    const metadataStore = tx.objectStore(OFFLINE_STORE_NAMES.referenceImageMetadata);
+    const metadataRequest = metadataStore.getAll();
+    metadataRequest.onsuccess = () => {
+      for (const record of metadataRequest.result as ReferenceImageMetadataRecord[]) {
+        if (record.photographId === photographId) metadataStore.delete(record.id);
+      }
+    };
+
+    const blobStore = tx.objectStore(OFFLINE_STORE_NAMES.referenceImageBlobs);
+    const blobRequest = blobStore.getAll();
+    blobRequest.onsuccess = () => {
+      for (const record of blobRequest.result as ReferenceImageBlobRecord[]) {
+        if (record.photographId === photographId) blobStore.delete(record.id);
+      }
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error ?? new Error("Offline photo delete transaction aborted"));
+    tx.onerror = () => reject(tx.error ?? new Error("Offline photo delete transaction failed"));
+  });
+}
+
 function cachedRecord<T>(user: Pick<User, "id">, entityId: string, data: T, timestamp: string) {
   return {
     id: entityId,
@@ -792,6 +848,34 @@ async function replaceCachedLocalPhoto(
     tx.oncomplete = () => resolve();
     tx.onabort = () => reject(tx.error ?? new Error("Cached photo replacement aborted"));
     tx.onerror = () => reject(tx.error ?? new Error("Cached photo replacement failed"));
+  });
+}
+
+async function cacheSyncedPhotograph(
+  db: IDBDatabase,
+  user: Pick<User, "id">,
+  photograph: Photograph,
+) {
+  const timestamp = nowIso();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORE_NAMES.photographs, "readwrite");
+    tx.objectStore(OFFLINE_STORE_NAMES.photographs).put({
+      id: photograph.id,
+      entityId: photograph.id,
+      userId: user.id,
+      data: photograph,
+      createdAt: photograph.created_at ?? timestamp,
+      updatedAt: photograph.updated_at ?? timestamp,
+      deletedAt: null,
+      serverRevision: null,
+      syncStatus: "synced",
+      rollId: photograph.roll_id,
+      filmHolderId: photograph.film_holder_id,
+      takenAt: photograph.taken_at,
+    } satisfies PhotographCacheRecord);
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error ?? new Error("Cached photo update aborted"));
+    tx.onerror = () => reject(tx.error ?? new Error("Cached photo update failed"));
   });
 }
 
@@ -1076,7 +1160,12 @@ export async function syncPendingQueueForUser(user: Pick<User, "id">): Promise<v
         await remapQueuedImageUploads(db, entry.entityId, createdPhoto.id);
       } else if (entry.entityType === "photo" && entry.operation === "update") {
         const payload = entry.payload as { photographId: string; payload: PhotographWritePayload };
-        await api.updatePhotograph(payload.photographId, remapPhotographPayloadRollId(payload.payload, rollIdRemaps));
+        const photographId = photoIdRemaps.get(payload.photographId) ?? payload.photographId;
+        if (photographId.startsWith("local-photo-")) {
+          throw new Error("Photograph has not synced yet.");
+        }
+        const updatedPhoto = await api.updatePhotograph(photographId, remapPhotographPayloadRollId(payload.payload, rollIdRemaps));
+        await cacheSyncedPhotograph(db, user, updatedPhoto);
       } else if (entry.entityType === "photo_image" && entry.operation === "upload") {
         const payload = entry.payload as {
           photographId: string;

@@ -1,6 +1,7 @@
 import { api } from "../api/client";
 import type { FilmHolder, Photograph, PhotographWritePayload, Roll, RollWritePayload, User } from "../api/client";
 import {
+  deleteOfflineLocalPhotograph,
   queueOfflineFilmHolderAction,
   queueOfflinePhotographUpdate,
   queueOfflineRollAction,
@@ -34,6 +35,14 @@ export function updatePhotographForConnectivity(
   if (!user) return api.updatePhotograph(photographId, payload);
   if (!photograph) throw new Error("This photograph is not available in the offline cache.");
   return queueOfflinePhotographUpdate(user, photograph, payload);
+}
+
+export function deletePhotographForConnectivity(
+  context: OfflineActionContext,
+  photographId: string,
+) {
+  const user = getOfflineUser(context);
+  return user ? deleteOfflineLocalPhotograph(user, photographId) : api.deletePhotograph(photographId);
 }
 
 export function loadFilmHolderForConnectivity(
@@ -104,4 +113,3 @@ export function reopenRollForConnectivity(
   const user = getOfflineUser(context);
   return user ? queueOfflineRollAction(user, roll, "reopen") : api.reopenRoll(roll.id);
 }
-
