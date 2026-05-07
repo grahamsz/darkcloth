@@ -13,7 +13,7 @@ import {
   readCachedLenses,
   readCachedRolls,
 } from "../offline/cache";
-import { queueOfflineRollAction } from "../offline/sync";
+import { finishRollForConnectivity } from "../offline/actions";
 import { formatFilterDisplayLabel } from "../photoFilters";
 import {
   APERTURE_INCREMENT_OPTIONS,
@@ -1152,9 +1152,11 @@ function RollsSection() {
   const markFinished = async (roll: Roll) => {
     try {
       const payload = { finished_at: new Date().toISOString() };
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineRollAction(user, roll, "finish", payload)
-        : await api.finishRoll(roll.id, payload);
+      const updated = await finishRollForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        roll,
+        payload,
+      );
       setItems((rs) => rs.map((r) => (r.id === roll.id ? updated : r)));
       setActionError(null);
     } catch (error) {

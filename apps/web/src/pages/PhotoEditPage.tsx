@@ -85,7 +85,7 @@ import {
   readCachedPhotographImages,
   readCachedRolls,
 } from "../offline/cache";
-import { queueOfflinePhotographUpdate } from "../offline/sync";
+import { updatePhotographForConnectivity } from "../offline/actions";
 
 // Route-level orchestration for editing a photo. Shared media/exposure rules live in src/photo*.ts.
 function toFormState(p: Photograph) {
@@ -908,12 +908,12 @@ export function PhotoEditPage() {
           ? [...form.filter_ids]
           : [];
 
-      if (connectivityState.transportStatus === "offline" && user) {
-        if (!photo) throw new Error("This photograph is not available in the offline cache.");
-        await queueOfflinePhotographUpdate(user, photo, payload as PhotographWritePayload);
-      } else {
-        await api.updatePhotograph(id, payload as PhotographWritePayload);
-      }
+      await updatePhotographForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        photo,
+        id,
+        payload as PhotographWritePayload,
+      );
       navigate(`/app/photos/${id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");

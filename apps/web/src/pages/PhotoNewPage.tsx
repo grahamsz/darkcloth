@@ -16,11 +16,10 @@ import {
   readCachedRolls,
 } from "../offline/cache";
 import {
-  queueOfflineFilmHolderAction,
   queueOfflinePhotographCreate,
   queueOfflinePhotographImageUpload,
-  queueOfflineRollCreate,
 } from "../offline/sync";
+import { createRollForConnectivity, loadFilmHolderForConnectivity } from "../offline/actions";
 import {
   getApertureChoiceOptions,
   getCameraShutterCapability,
@@ -1513,9 +1512,10 @@ export function PhotoNewPage() {
     setRollCreateSaving(true);
     setRollCreateError(null);
     try {
-      const createdRoll = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineRollCreate(user, buildRollCreatePayload(nextDraft))
-        : await api.createRoll(buildRollCreatePayload(nextDraft));
+      const createdRoll = await createRollForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        buildRollCreatePayload(nextDraft),
+      );
       setRolls(prev => [createdRoll, ...prev.filter(roll => roll.id !== createdRoll.id)]);
       setForm(prev => prev ? {
         ...prev,
@@ -1542,13 +1542,12 @@ export function PhotoNewPage() {
     setHolderLoadError(null);
     try {
       const holder = filmHolders.find((item) => item.id === mediaDialog.holderId) ?? null;
-      if (connectivityState.transportStatus === "offline" && !holder) {
-        setHolderLoadError("This holder is not cached for offline loading.");
-        return;
-      }
-      const updatedHolder = connectivityState.transportStatus === "offline" && user && holder
-        ? await queueOfflineFilmHolderAction(user, holder, "load", buildHolderLoadPayload(holderLoadDraft))
-        : await api.loadFilmHolder(mediaDialog.holderId, buildHolderLoadPayload(holderLoadDraft));
+      const updatedHolder = await loadFilmHolderForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        holder,
+        mediaDialog.holderId,
+        buildHolderLoadPayload(holderLoadDraft),
+      );
       setFilmHolders(prev => prev.map(holder => holder.id === updatedHolder.id ? updatedHolder : holder));
       setForm(prev => prev ? {
         ...prev,

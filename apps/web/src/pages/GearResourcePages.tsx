@@ -102,7 +102,16 @@ import {
   readCachedRolls,
 } from "../offline/cache";
 import { readCachedItemForLoader, readCachedItemsForLoader } from "../offline/resourceLoaders";
-import { queueOfflineFilmHolderAction, queueOfflineRollAction, queueOfflineRollCreate } from "../offline/sync";
+import {
+  createRollForConnectivity,
+  finishRollForConnectivity,
+  loadFilmHolderForConnectivity,
+  processFilmHolderLoadForConnectivity,
+  processRollForConnectivity,
+  reopenRollForConnectivity,
+  undoFilmHolderExposureForConnectivity,
+  unloadFilmHolderForConnectivity,
+} from "../offline/actions";
 
 const CAMERA_LIST_PATH = "/app/gear/cameras";
 const LENS_LIST_PATH = "/app/gear/lenses";
@@ -765,9 +774,12 @@ function FilmHolderLifecyclePanel({
         film_id: loadFilmId,
         notes: loadNotes.trim() ? loadNotes.trim() : null,
       };
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineFilmHolderAction(user, filmHolder, "load", payload)
-        : await api.loadFilmHolder(filmHolder.id, payload);
+      const updated = await loadFilmHolderForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        filmHolder,
+        filmHolder.id,
+        payload,
+      );
       onChange(updated);
     } catch (err) {
       setActionError(errorMessage(err, "Failed to load film holder"));
@@ -783,9 +795,10 @@ function FilmHolderLifecyclePanel({
     setActionError(null);
     setSavingAction("unload");
     try {
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineFilmHolderAction(user, filmHolder, "unload")
-        : await api.unloadFilmHolder(filmHolder.id);
+      const updated = await unloadFilmHolderForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        filmHolder,
+      );
       onChange(updated);
     } catch (err) {
       setActionError(errorMessage(err, "Failed to unload film holder"));
@@ -805,9 +818,11 @@ function FilmHolderLifecyclePanel({
         development_profile_id: currentLoadHasStoredBtzsTarget ? null : processProfileId || null,
         notes: processNotes.trim() ? processNotes.trim() : null,
       };
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineFilmHolderAction(user, filmHolder, "process", payload)
-        : await api.processFilmHolderLoad(filmHolder.id, payload);
+      const updated = await processFilmHolderLoadForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        filmHolder,
+        payload,
+      );
       onChange(updated);
     } catch (err) {
       setActionError(errorMessage(err, "Failed to mark the load processed"));
@@ -826,9 +841,11 @@ function FilmHolderLifecyclePanel({
     setSavingAction("undo");
     try {
       const payload = currentLoad.exposed_photograph_id ? { clear_photograph_holder: true } : undefined;
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineFilmHolderAction(user, filmHolder, "undo", payload)
-        : await api.undoFilmHolderExposure(filmHolder.id, payload);
+      const updated = await undoFilmHolderExposureForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        filmHolder,
+        payload,
+      );
       onChange(updated);
     } catch (err) {
       setActionError(errorMessage(err, "Failed to undo exposure"));
@@ -1689,9 +1706,11 @@ function RollCurrentSection({
     setProcessError(null);
     try {
       const payload = { finished_at: new Date().toISOString() };
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineRollAction(user, roll, "finish", payload)
-        : await api.finishRoll(roll.id, payload);
+      const updated = await finishRollForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        roll,
+        payload,
+      );
       onRollChange(updated);
     } catch (error) {
       setProcessError(errorMessage(error, "Failed to mark the roll finished"));
@@ -1711,9 +1730,11 @@ function RollCurrentSection({
         development_profile_id: processDraft.developmentProfileId || null,
         development_notes: processDraft.developmentNotes.trim() || null,
       };
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineRollAction(user, roll, "process", payload)
-        : await api.processRoll(roll.id, payload);
+      const updated = await processRollForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        roll,
+        payload,
+      );
       onRollChange(updated);
       setProcessOpen(false);
     } catch (error) {
@@ -1731,9 +1752,10 @@ function RollCurrentSection({
     setSavingAction("reopen");
     setProcessError(null);
     try {
-      const updated = connectivityState.transportStatus === "offline" && user
-        ? await queueOfflineRollAction(user, roll, "reopen")
-        : await api.reopenRoll(roll.id);
+      const updated = await reopenRollForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        roll,
+      );
       onRollChange(updated);
     } catch (error) {
       setProcessError(errorMessage(error, "Failed to reopen the roll"));
@@ -2882,11 +2904,10 @@ export function RollCreatePage() {
     setSaving(true);
     try {
       const payload = buildRollPayload(draft);
-      if (connectivityState.transportStatus === "offline" && user) {
-        await queueOfflineRollCreate(user, { ...payload, name: nextName });
-      } else {
-        await api.createRoll(payload);
-      }
+      await createRollForConnectivity(
+        { transportStatus: connectivityState.transportStatus, user },
+        { ...payload, name: nextName },
+      );
       navigate(ROLL_LIST_PATH, { replace: true });
     } catch (err) {
       setError(errorMessage(err, "Failed to create roll"));
