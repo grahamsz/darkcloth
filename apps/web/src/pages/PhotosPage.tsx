@@ -161,7 +161,7 @@ export function PhotosPage() {
 
       {photos.length > 0 && (
         <ul className="photo-list">
-          {photos.map(photo => {
+          {photos.map((photo, index) => {
             const roll = photo.roll_id ? rolls.get(photo.roll_id) ?? null : null;
             const camera = photo.camera_id ? cameras.get(photo.camera_id) : null;
             const lens = photo.lens_id ? lenses.get(photo.lens_id) : null;
@@ -199,6 +199,8 @@ export function PhotosPage() {
                     thumbnailAlt={thumbnail ? formatPhotographImageLabel(thumbnail) : ""}
                     thumbnailWidth={thumbnail?.thumbnail_width ?? thumbnail?.width ?? null}
                     thumbnailHeight={thumbnail?.thumbnail_height ?? thumbnail?.height ?? null}
+                    thumbnailFetchPriority={index === 0 ? "high" : "auto"}
+                    thumbnailLoading={index === 0 ? "eager" : "lazy"}
                   />
                 </Link>
               </li>

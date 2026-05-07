@@ -12,6 +12,8 @@ export type PhotographSummaryBlockProps = {
   thumbnailAlt?: string;
   thumbnailWidth?: number | null;
   thumbnailHeight?: number | null;
+  thumbnailFetchPriority?: "high" | "low" | "auto";
+  thumbnailLoading?: "eager" | "lazy";
   fallbackMeta?: ReactNode;
 };
 
@@ -55,6 +57,8 @@ export function PhotographSummaryBlock({
   thumbnailAlt = "",
   thumbnailWidth = null,
   thumbnailHeight = null,
+  thumbnailFetchPriority = "auto",
+  thumbnailLoading = "lazy",
   fallbackMeta,
 }: PhotographSummaryBlockProps) {
   const hasThumbnailDimensions = thumbnailWidth != null && thumbnailHeight != null && thumbnailWidth > 0 && thumbnailHeight > 0;
@@ -89,7 +93,8 @@ export function PhotographSummaryBlock({
             alt={thumbnailAlt}
             width={thumbnailWidth ?? undefined}
             height={thumbnailHeight ?? undefined}
-            loading="lazy"
+            loading={thumbnailLoading}
+            fetchPriority={thumbnailFetchPriority}
             decoding="async"
             style={{ objectFit: "contain", objectPosition: "center" }}
           />
