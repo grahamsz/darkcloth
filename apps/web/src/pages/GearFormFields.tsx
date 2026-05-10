@@ -1558,6 +1558,7 @@ export type FilmStockFormFieldsProps = {
   onChange: (next: FilmStockFormDraft) => void;
   presets?: FilmStockPreset[];
   onPresetChange?: (next: string) => void;
+  showSpectralResponse?: boolean;
 };
 
 export interface FilmStockFormDraft {
@@ -1630,9 +1631,67 @@ function FilmSpectralResponseCurvePreview({ preset }: { preset: NonNullable<Retu
   );
 }
 
-export function FilmStockFormFields({ draft, onChange, presets, onPresetChange }: FilmStockFormFieldsProps) {
+export function FilmStockSpectralResponseFields({
+  draft,
+  onChange,
+}: Pick<FilmStockFormFieldsProps, "draft" | "onChange">) {
   const supportsSpectralResponse = supportsFilmSpectralResponse(draft.stockType);
   const spectralResponsePreset = getFilmSpectralResponsePreset(draft.spectralResponsePreset);
+
+  return (
+    <fieldset className="gear-shutter-fieldset resource-form-field--full">
+      <legend>Film spectral response</legend>
+      {!supportsSpectralResponse && (
+        <p className="field-note">Spectral response simulation is available for monochrome film stocks.</p>
+      )}
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={supportsSpectralResponse && draft.simulateSpectralResponse}
+          disabled={!supportsSpectralResponse}
+          onChange={(event) => onChange({ ...draft, simulateSpectralResponse: event.target.checked })}
+        />
+        <span>Use film spectral response when simulating B&W reference images</span>
+      </label>
+      {supportsSpectralResponse && !draft.simulateSpectralResponse && (
+        <p className="field-note">Enable spectral response simulation to choose a response preset and preview its curve.</p>
+      )}
+      {supportsSpectralResponse && draft.simulateSpectralResponse && (
+        <>
+          <label className="field resource-form-field--full" htmlFor="film-stock-spectral-response">
+            <span>Response preset</span>
+            <select
+              id="film-stock-spectral-response"
+              value={draft.spectralResponsePreset}
+              onChange={(event) => onChange({ ...draft, spectralResponsePreset: event.target.value as FilmSpectralResponseKey })}
+            >
+              {FILM_STOCK_SPECTRAL_RESPONSE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <small className="film-stock-type-note">
+              {formatFilmSpectralResponseLabel(draft.spectralResponsePreset)}
+            </small>
+          </label>
+          {spectralResponsePreset && (
+            <>
+              <FilmSpectralResponseCurvePreview preset={spectralResponsePreset} />
+              <FilmSpectralResponsePreview presetKey={draft.spectralResponsePreset} />
+            </>
+          )}
+        </>
+      )}
+    </fieldset>
+  );
+}
+
+export function FilmStockFormFields({
+  draft,
+  onChange,
+  presets,
+  onPresetChange,
+  showSpectralResponse = true,
+}: FilmStockFormFieldsProps) {
   return (
     <>
       {presets && presets.length > 0 && onPresetChange && (
@@ -1713,43 +1772,7 @@ export function FilmStockFormFields({ draft, onChange, presets, onPresetChange }
           onChange={(event) => onChange({ ...draft, process: event.target.value })}
         />
       </label>
-      <fieldset className="gear-shutter-fieldset resource-form-field--full">
-        <legend>Film spectral response</legend>
-        {!supportsSpectralResponse && (
-          <p className="field-note">Spectral response simulation is available for monochrome film stocks.</p>
-        )}
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={supportsSpectralResponse && draft.simulateSpectralResponse}
-            disabled={!supportsSpectralResponse}
-            onChange={(event) => onChange({ ...draft, simulateSpectralResponse: event.target.checked })}
-          />
-          <span>Use film spectral response when simulating B&W reference images</span>
-        </label>
-        <label className="field resource-form-field--full" htmlFor="film-stock-spectral-response">
-          <span>Response preset</span>
-          <select
-            id="film-stock-spectral-response"
-            value={draft.spectralResponsePreset}
-            disabled={!supportsSpectralResponse}
-            onChange={(event) => onChange({ ...draft, spectralResponsePreset: event.target.value as FilmSpectralResponseKey })}
-          >
-            {FILM_STOCK_SPECTRAL_RESPONSE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <small className="film-stock-type-note">
-            {formatFilmSpectralResponseLabel(draft.spectralResponsePreset)}
-          </small>
-        </label>
-        {supportsSpectralResponse && spectralResponsePreset && (
-          <>
-            <FilmSpectralResponseCurvePreview preset={spectralResponsePreset} />
-            <FilmSpectralResponsePreview presetKey={draft.spectralResponsePreset} />
-          </>
-        )}
-      </fieldset>
+      {showSpectralResponse && <FilmStockSpectralResponseFields draft={draft} onChange={onChange} />}
     </>
   );
 }

@@ -15,6 +15,11 @@ export interface Env {
   IMAGES: ImagesBinding;
   REFERENCE_IMAGES: R2Bucket;
   JWT_SECRET: string;
+  SMTP_HOST?: string;
+  SMTP_PORT?: string;
+  SMTP_USERNAME?: string;
+  SMTP_PASSWORD?: string;
+  SMTP_FROM_EMAIL?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -62,7 +67,7 @@ app.use("*", async (c, next) => {
 app.get("/api/health", (c) => {
   return new Response(JSON.stringify({
     ok: true,
-    service: "phototracker",
+    service: "darkcloth",
   }), {
     status: 200,
     headers: {

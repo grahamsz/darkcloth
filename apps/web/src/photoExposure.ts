@@ -890,12 +890,20 @@ export function resolveSingleSpotProfileDevelopment(
     ? interpolateBtzsSeriesValue(
         developmentTimeSeries,
         developmentTimeSeries.axis === "averageG" ? requiredG : STANDARD_SINGLE_SPOT_SBR,
+        {
+          curveInterpolation: profile.btzsCurveInterpolationEnabled,
+          extrapolationStops: profile.btzsExtrapolationStops,
+        },
       )
     : null;
   const effectiveFilmSpeedLookup = effectiveFilmSpeedSeries
     ? interpolateBtzsSeriesValue(
         effectiveFilmSpeedSeries,
         effectiveFilmSpeedSeries.axis === "averageG" ? requiredG : STANDARD_SINGLE_SPOT_SBR,
+        {
+          curveInterpolation: profile.btzsCurveInterpolationEnabled,
+          extrapolationStops: profile.btzsExtrapolationStops,
+        },
       )
     : null;
 
@@ -1741,6 +1749,8 @@ function buildBtzsZoneMeteringWritePayload(
         flareFactor: resolvedFlareFactor,
         meterIso: DEFAULT_METER_ISO,
         chartData: selectedProfile.chartData,
+        curveInterpolation: selectedProfile.btzsCurveInterpolationEnabled,
+        extrapolationStops: selectedProfile.btzsExtrapolationStops,
         compensationStops: resolvedCompensationStops,
         filterFactors: selectedFilters,
         readingThroughSelectedFilters: input.btzs_zone_metering.reading_through_selected_filters,

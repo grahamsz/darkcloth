@@ -6,10 +6,7 @@ import { getCollectionNavigationState } from "../components/collectionNavigation
 import type { ImportedBtzsXdfPreview } from "../btzs/import";
 import { buildImportedBtzsProfileCreate, buildImportedBtzsXdfPreview } from "../btzs/import";
 import {
-  FILM_STOCK_PRESETS,
   FILM_STOCK_BTZS_ONLY_REASON,
-  formatFilmSpectralResponseLabel,
-  formatFilmStockTypeLabel,
   getFilmStockTypeAvailabilityText,
 } from "../film-stocks";
 import {
@@ -17,7 +14,7 @@ import {
   createBlankBtzsChartSeriesDrafts,
   splitBtzsChartData,
 } from "../btzs/chart-data";
-import { formatBtzsChartCell, formatBtzsDisplayNumber } from "../btzs/chart-display";
+import { buildBtzsChartExpandedRange, formatBtzsChartCell, formatBtzsDisplayNumber } from "../btzs/chart-display";
 import { BtzsChartSeriesEditor } from "../btzs/chart-series-editor";
 import { describeRawXdfMetadata, parseBtzsXdf } from "../btzs/xdf";
 import type {
@@ -34,19 +31,20 @@ import { useAuth } from "../contexts/AuthContext";
 import { useConnectivity } from "../contexts/ConnectivityContext";
 import { readCachedDevelopmentProfiles, readCachedFilmStock, readCachedFilmStocks } from "../offline/cache";
 import {
-  applyFilmStockPreset,
   buildFilmStockPayload,
   createEmptyFilmStockDraft,
   filmStockDraftFromFilmStock,
   FilmStockFormFields,
+  FilmStockSpectralResponseFields,
   parseReciprocityPFactorInput,
   type FilmStockFormDraft,
 } from "./GearFormFields";
 
 const FILM_STOCK_LIST_PATH = "/app/film/stocks";
 const FILM_STOCK_DETAIL_PATH = (id: string) => `${FILM_STOCK_LIST_PATH}/${id}`;
-const FILM_STOCK_IMPORT_PATH = (id: string) => `${FILM_STOCK_DETAIL_PATH(id)}?import=1`;
-const FILM_STOCK_PROFILE_NEW_PATH = (id: string) => `${FILM_STOCK_DETAIL_PATH(id)}?profile=new`;
+const FILM_STOCK_PROFILES_PATH = (id: string) => `${FILM_STOCK_DETAIL_PATH(id)}/development-profiles`;
+const FILM_STOCK_IMPORT_PATH = (id: string) => `${FILM_STOCK_PROFILES_PATH(id)}?import=1`;
+const FILM_STOCK_PROFILE_NEW_PATH = (id: string) => `${FILM_STOCK_PROFILES_PATH(id)}?profile=new`;
 
 type ProfileDraft = {
   type: DevelopmentProfileType;
@@ -68,6 +66,8 @@ type ProfileDraft = {
   paperEsText: string;
   methodText: string;
   keyValuesText: string;
+  btzsCurveInterpolationEnabled: boolean;
+  btzsExtrapolationStops: string;
   chartSeries: ReturnType<typeof createBlankBtzsChartSeriesDrafts>;
   otherChartData: BTZSChartData[];
   sourceFilesText: string;
@@ -155,6 +155,8 @@ function emptyProfileDraft(type: DevelopmentProfileType = "simple"): ProfileDraf
     paperEsText: "",
     methodText: "",
     keyValuesText: "",
+    btzsCurveInterpolationEnabled: false,
+    btzsExtrapolationStops: "0",
     chartSeries: createBlankBtzsChartSeriesDrafts(),
     otherChartData: [],
     sourceFilesText: "",
@@ -198,6 +200,8 @@ function draftFromProfile(profile: DevelopmentProfile): ProfileDraft {
     paperEsText: profile.paperEsText ?? "",
     methodText: profile.methodText ?? "",
     keyValuesText: profile.keyValuesText ?? "",
+    btzsCurveInterpolationEnabled: Boolean(profile.btzsCurveInterpolationEnabled),
+    btzsExtrapolationStops: String(profile.btzsExtrapolationStops ?? 0),
     chartSeries: series,
     otherChartData,
     sourceFilesText: profile.sourceFiles ? JSON.stringify(profile.sourceFiles, null, 2) : "",
@@ -223,6 +227,16 @@ function optionalPositiveNumber(value: string, label: string) {
   const parsed = Number(trimmed);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`${label} must be a positive number.`);
+  }
+  return parsed;
+}
+
+function optionalNonNegativeNumber(value: string, label: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${label} must be zero or greater.`);
   }
   return parsed;
 }
@@ -281,6 +295,8 @@ function buildCreatePayload(draft: ProfileDraft): DevelopmentProfileCreate {
     paperEsText: optionalText(draft.paperEsText),
     methodText: optionalText(draft.methodText),
     keyValuesText: optionalText(draft.keyValuesText),
+    btzsCurveInterpolationEnabled: draft.btzsCurveInterpolationEnabled,
+    btzsExtrapolationStops: optionalNonNegativeNumber(draft.btzsExtrapolationStops, "BTZS range expansion"),
     chartData: buildBtzsChartDataFromSeries(draft.chartSeries, draft.otherChartData),
     sourceFiles: parseOptionalJsonArray(draft.sourceFilesText, "Source files") as BTZSSourceFile[] | null,
   };
@@ -312,6 +328,8 @@ function buildUpdatePayload(draft: ProfileDraft): DevelopmentProfileUpdate {
   payload.paperEsText = optionalText(draft.paperEsText);
   payload.methodText = optionalText(draft.methodText);
   payload.keyValuesText = optionalText(draft.keyValuesText);
+  payload.btzsCurveInterpolationEnabled = draft.btzsCurveInterpolationEnabled;
+  payload.btzsExtrapolationStops = optionalNonNegativeNumber(draft.btzsExtrapolationStops, "BTZS range expansion");
   payload.chartData = buildBtzsChartDataFromSeries(draft.chartSeries, draft.otherChartData);
   payload.sourceFiles = parseOptionalJsonArray(draft.sourceFilesText, "Source files") as BTZSSourceFile[] | null;
   return payload;
@@ -515,6 +533,26 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function DevelopmentProfileSummaryCard({ profile, to }: { profile: DevelopmentProfile; to: string }) {
+  const chemistry = [profile.developerName, profile.dilution].filter(Boolean).join(" ");
+  const timing = profile.type === "simple"
+    ? [profile.timeText, profile.temperatureText].filter(Boolean).join(" · ")
+    : [profile.temperatureText, profile.filmIso ? `EI ${profile.filmIso}` : null].filter(Boolean).join(" · ");
+
+  return (
+    <Link className="development-profile-summary-card" to={to}>
+      <div>
+        <span className={`profile-type-badge profile-type-badge--${profile.type}`}>
+          {profile.type === "simple" ? "Simple" : "BTZS"}
+        </span>
+        <h3>{profile.name}</h3>
+      </div>
+      <p>{chemistry || "No developer recorded"}</p>
+      {timing && <p className="development-profile-summary-card-meta">{timing}</p>}
+    </Link>
+  );
+}
+
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
@@ -543,7 +581,7 @@ function DevelopmentProfileModal({
   const eyebrow = mode === "import" ? "BTZS import" : mode === "create" ? "Development profile" : "Edit profile";
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop film-stock-profile-modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div
         className="modal film-stock-profile-modal"
         role="dialog"
@@ -563,6 +601,75 @@ function DevelopmentProfileModal({
         <div className="film-stock-profile-modal-body">{children}</div>
       </div>
     </div>
+  );
+}
+
+function parseDevelopmentTimeToSeconds(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    return Math.round(Number(trimmed) * 60);
+  }
+
+  const parts = trimmed.split(":").map((part) => Number(part.trim()));
+  if (parts.length === 2 && parts.every((part) => Number.isFinite(part) && part >= 0)) {
+    return Math.round(parts[0] * 60 + parts[1]);
+  }
+  if (parts.length === 3 && parts.every((part) => Number.isFinite(part) && part >= 0)) {
+    return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  }
+  return null;
+}
+
+function formatDevelopmentTime(seconds: number) {
+  const rounded = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(rounded / 60);
+  const remainderSeconds = rounded % 60;
+  return `${minutes}:${String(remainderSeconds).padStart(2, "0")}`;
+}
+
+function formatAdjustedDevelopmentTime(baseTimeText: string, percentText: string) {
+  const baseSeconds = parseDevelopmentTimeToSeconds(baseTimeText);
+  const percent = Number(percentText.trim());
+  if (baseSeconds == null || !Number.isFinite(percent) || percent <= 0) return null;
+  return formatDevelopmentTime(baseSeconds * (percent / 100));
+}
+
+function ProfileAdjustmentField({
+  id,
+  label,
+  value,
+  baseTimeText,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  baseTimeText: string;
+  onChange: (next: string) => void;
+}) {
+  const adjustedTime = formatAdjustedDevelopmentTime(baseTimeText, value);
+  return (
+    <label className="field profile-adjustment-field" htmlFor={id}>
+      <span>{label}</span>
+      <div className="profile-adjustment-row">
+        <span className="profile-adjustment-input-wrap">
+          <input
+            id={id}
+            type="number"
+            inputMode="decimal"
+            min="1"
+            step="1"
+            value={value}
+            placeholder="80"
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <span className="profile-adjustment-percent">%</span>
+        </span>
+        <span className="profile-adjustment-time">{adjustedTime ?? "Enter base time"}</span>
+      </div>
+    </label>
   );
 }
 
@@ -710,58 +817,38 @@ function ProfileEditorForm({
 
         {profileType === "simple" && (
           <fieldset>
-            <legend>Zone adjustments</legend>
-            <div className="profile-form-grid">
-              <label className="field" htmlFor="development-profile-n-minus-two">
-                <span>N-2 percent</span>
-                <input
-                  id="development-profile-n-minus-two"
-                  type="number"
-                  inputMode="decimal"
-                  min="1"
-                  step="1"
-                  value={draft.nMinusTwoPercent}
-                  onChange={(event) => setField("nMinusTwoPercent", event.target.value)}
-                />
-              </label>
-              <label className="field" htmlFor="development-profile-n-minus-one">
-                <span>N-1 percent</span>
-                <input
-                  id="development-profile-n-minus-one"
-                  type="number"
-                  inputMode="decimal"
-                  min="1"
-                  step="1"
-                  value={draft.nMinusOnePercent}
-                  onChange={(event) => setField("nMinusOnePercent", event.target.value)}
-                />
-              </label>
-              <label className="field" htmlFor="development-profile-n-plus-one">
-                <span>N+1 percent</span>
-                <input
-                  id="development-profile-n-plus-one"
-                  type="number"
-                  inputMode="decimal"
-                  min="1"
-                  step="1"
-                  value={draft.nPlusOnePercent}
-                  onChange={(event) => setField("nPlusOnePercent", event.target.value)}
-                />
-              </label>
-              <label className="field" htmlFor="development-profile-n-plus-two">
-                <span>N+2 percent</span>
-                <input
-                  id="development-profile-n-plus-two"
-                  type="number"
-                  inputMode="decimal"
-                  min="1"
-                  step="1"
-                  value={draft.nPlusTwoPercent}
-                  onChange={(event) => setField("nPlusTwoPercent", event.target.value)}
-                />
-              </label>
+            <legend>Push/Pull adjustments</legend>
+            <div className="profile-adjustments-grid">
+              <ProfileAdjustmentField
+                id="development-profile-n-minus-two"
+                label="N-2"
+                value={draft.nMinusTwoPercent}
+                baseTimeText={draft.timeText}
+                onChange={(next) => setField("nMinusTwoPercent", next)}
+              />
+              <ProfileAdjustmentField
+                id="development-profile-n-minus-one"
+                label="N-1"
+                value={draft.nMinusOnePercent}
+                baseTimeText={draft.timeText}
+                onChange={(next) => setField("nMinusOnePercent", next)}
+              />
+              <ProfileAdjustmentField
+                id="development-profile-n-plus-one"
+                label="N+1"
+                value={draft.nPlusOnePercent}
+                baseTimeText={draft.timeText}
+                onChange={(next) => setField("nPlusOnePercent", next)}
+              />
+              <ProfileAdjustmentField
+                id="development-profile-n-plus-two"
+                label="N+2"
+                value={draft.nPlusTwoPercent}
+                baseTimeText={draft.timeText}
+                onChange={(next) => setField("nPlusTwoPercent", next)}
+              />
               <p className="field-note profile-field--full">
-                Percentages are relative to normal development time. N is 100%; fractional N values are interpolated.
+                Percentages are relative to normal development time. The displayed time is calculated from the current development time.
               </p>
             </div>
           </fieldset>
@@ -827,6 +914,40 @@ function ProfileEditorForm({
                     onChange={(event) => setField("keyValuesText", event.target.value)}
                     placeholder="CI 0.56 / EFS 100-"
                   />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Curve lookup</legend>
+              <div className="profile-form-grid">
+                <label className="field profile-field--full profile-checkbox-field" htmlFor="development-profile-curve-interpolation">
+                  <span className="checkbox-label">
+                    <input
+                      id="development-profile-curve-interpolation"
+                      type="checkbox"
+                      checked={draft.btzsCurveInterpolationEnabled}
+                      onChange={(event) => setField("btzsCurveInterpolationEnabled", event.target.checked)}
+                    />
+                    <span>Use curve interpolation for BTZS lookups</span>
+                  </span>
+                  <small>
+                    Smooths the lookup through the measured chart points instead of using straight line segments.
+                  </small>
+                </label>
+                <label className="field" htmlFor="development-profile-extrapolation-stops">
+                  <span>Experimental range expansion</span>
+                  <input
+                    id="development-profile-extrapolation-stops"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={draft.btzsExtrapolationStops}
+                    onChange={(event) => setField("btzsExtrapolationStops", event.target.value)}
+                    placeholder="0"
+                  />
+                  <small>Stops beyond the measured chart range. 0 disables extrapolation.</small>
                 </label>
               </div>
             </fieldset>
@@ -1093,11 +1214,88 @@ function XdfImportPanel({
   );
 }
 
-function ChartCard({ chart }: { chart: BTZSChartData }) {
+function buildBtzsChartPath(
+  points: PlotPoint[],
+  toX: (value: number) => number,
+  toY: (value: number) => number,
+  smooth: boolean,
+) {
+  const coords = points.map((point) => ({ x: toX(point.x), y: toY(point.y) }));
+  if (coords.length === 0) return "";
+  if (!smooth || coords.length < 3) {
+    return coords.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+  }
+
+  return coords
+    .map((point, index) => {
+      if (index === 0) return `M ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+
+      const previous = coords[index - 2] ?? coords[index - 1];
+      const current = coords[index - 1];
+      const next = point;
+      const following = coords[index + 1] ?? next;
+      const controlOneX = current.x + (next.x - previous.x) / 6;
+      const controlOneY = current.y + (next.y - previous.y) / 6;
+      const controlTwoX = next.x - (following.x - current.x) / 6;
+      const controlTwoY = next.y - (following.y - current.y) / 6;
+
+      return [
+        "C",
+        controlOneX.toFixed(2),
+        controlOneY.toFixed(2),
+        controlTwoX.toFixed(2),
+        controlTwoY.toFixed(2),
+        next.x.toFixed(2),
+        next.y.toFixed(2),
+      ].join(" ");
+    })
+    .join(" ");
+}
+
+function ChartCard({
+  chart,
+  curveInterpolationEnabled = false,
+  extrapolationStops = 0,
+}: {
+  chart: BTZSChartData;
+  curveInterpolationEnabled?: boolean | null;
+  extrapolationStops?: number | null;
+}) {
   const title = formatChartTitle(chart);
   const xAxisLabel = normalizeText(typeof chart.xAxisLabel === "string" ? chart.xAxisLabel : "") || "X axis";
   const yAxisLabel = normalizeText(typeof chart.yAxisLabel === "string" ? chart.yAxisLabel : "") || "Y axis";
   const { rawPoints, plottedPoints, xKey, yKey } = buildPlotSeries(chart);
+  const sortedPlottedPoints = [...plottedPoints].sort((left, right) => left.x - right.x);
+  const rangeExpansionStops = typeof extrapolationStops === "number" && Number.isFinite(extrapolationStops)
+    ? Math.max(0, extrapolationStops)
+    : 0;
+  const expandedRange = buildBtzsChartExpandedRange({
+    chart,
+    xKey,
+    yKey,
+    points: sortedPlottedPoints.map((point) => ({ x: point.x, y: point.y })),
+    curveInterpolationEnabled,
+    extrapolationStops: rangeExpansionStops,
+  });
+  const expandedPlotPoints = expandedRange?.points.map((point) => ({
+    x: point.x,
+    y: point.y,
+    raw: {},
+  } satisfies PlotPoint)) ?? [];
+  const expandedCurvePoints = expandedRange?.curvePoints.map((point) => ({
+    x: point.x,
+    y: point.y,
+    raw: {},
+  } satisfies PlotPoint)) ?? [];
+  const measuredCurvePoints = expandedRange?.measuredCurvePoints.map((point) => ({
+    x: point.x,
+    y: point.y,
+    raw: {},
+  } satisfies PlotPoint)) ?? [];
+  const curvePoints = [
+    ...(expandedCurvePoints.length > 0 ? expandedCurvePoints : expandedPlotPoints),
+    ...sortedPlottedPoints,
+  ].sort((left, right) => left.x - right.x);
   const columns = (() => {
     const keys = new Set<string>();
     const preferred = [xKey, yKey, "label", "name", "series"].filter((value): value is string => Boolean(value));
@@ -1125,8 +1323,8 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
-  const xValues = plottedPoints.map((point) => point.x);
-  const yValues = plottedPoints.map((point) => point.y);
+  const xValues = curvePoints.map((point) => point.x);
+  const yValues = curvePoints.map((point) => point.y);
   const xMin = xValues.length > 0 ? Math.min(...xValues) : 0;
   const xMax = xValues.length > 0 ? Math.max(...xValues) : 1;
   const yMin = yValues.length > 0 ? Math.min(...yValues) : 0;
@@ -1137,13 +1335,22 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
   const toX = (value: number) => margin.left + ((value - xMin) / xRange) * plotWidth;
   const toY = (value: number) => margin.top + plotHeight - ((value - yMin) / yRange) * plotHeight;
 
-  const linePath = plottedPoints
-    .map((point, index) => {
-      const x = toX(point.x);
-      const y = toY(point.y);
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
+  const useCurveInterpolation = Boolean(curveInterpolationEnabled && sortedPlottedPoints.length >= 3);
+  const chartSummaryBits = [...summaryBits];
+  if (useCurveInterpolation) chartSummaryBits.push("curve interpolation");
+  if (rangeExpansionStops > 0) chartSummaryBits.push(`experimental ±${formatBtzsDisplayNumber(rangeExpansionStops)} stops`);
+  const expandedLinePath = buildBtzsChartPath(
+    expandedCurvePoints.length > 0 ? expandedCurvePoints : expandedPlotPoints,
+    toX,
+    toY,
+    false,
+  );
+  const linePath = buildBtzsChartPath(
+    measuredCurvePoints.length > 0 ? measuredCurvePoints : sortedPlottedPoints,
+    toX,
+    toY,
+    measuredCurvePoints.length > 0 ? false : useCurveInterpolation,
+  );
 
   const tickCount = 4;
 
@@ -1154,12 +1361,12 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
           <h4 className="btzs-chart-title">{title}</h4>
           <p className="btzs-chart-meta">
             {xAxisLabel} · {yAxisLabel}
-            {summaryBits.length > 0 ? ` · ${summaryBits.join(" · ")}` : ""}
+            {chartSummaryBits.length > 0 ? ` · ${chartSummaryBits.join(" · ")}` : ""}
           </p>
         </div>
       </div>
 
-      {plottedPoints.length > 0 ? (
+      {sortedPlottedPoints.length > 0 ? (
         <div className="btzs-chart-figure">
           <svg
             className="btzs-chart-svg"
@@ -1221,6 +1428,19 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
               strokeWidth="1.2"
             />
 
+            {expandedLinePath && (
+              <path
+                d={expandedLinePath}
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="2.2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                strokeDasharray="7 5"
+                opacity="0.52"
+              />
+            )}
+
             {linePath && (
               <path
                 d={linePath}
@@ -1232,7 +1452,7 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
               />
             )}
 
-            {plottedPoints.map((point, index) => (
+            {sortedPlottedPoints.map((point, index) => (
               <circle
                 key={`${point.x}-${point.y}-${index}`}
                 cx={toX(point.x)}
@@ -1241,6 +1461,19 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
                 fill="var(--accent-strong)"
                 stroke="#fff"
                 strokeWidth="1.4"
+              />
+            ))}
+
+            {expandedRange?.points.map((point, index) => (
+              <circle
+                key={`expanded-${point.label}-${index}`}
+                cx={toX(point.x)}
+                cy={toY(point.y)}
+                r="4"
+                fill="var(--panel)"
+                stroke="var(--accent)"
+                strokeWidth="1.5"
+                strokeDasharray="2.4 2.4"
               />
             ))}
 
@@ -1261,6 +1494,36 @@ function ChartCard({ chart }: { chart: BTZSChartData }) {
         </div>
       ) : (
         <p className="btzs-chart-empty">No plottable points found for this chart.</p>
+      )}
+
+      {expandedRange && (
+        <div className="btzs-chart-range-expansion">
+          <p className="btzs-chart-range-note">
+            Expanded curve range: {xAxisLabel} {formatBtzsDisplayNumber(expandedRange.expandedMin)}
+            -{formatBtzsDisplayNumber(expandedRange.expandedMax)}. Measured range:
+            {" "}{formatBtzsDisplayNumber(expandedRange.measuredMin)}-{formatBtzsDisplayNumber(expandedRange.measuredMax)}.
+          </p>
+          <div className="btzs-chart-table-wrap btzs-chart-table-wrap--compact">
+            <table className="btzs-chart-table btzs-chart-table--compact">
+              <thead>
+                <tr>
+                  <th>Curve range</th>
+                  <th>{xKey ? formatColumnLabel(xKey) : xAxisLabel}</th>
+                  <th>{yKey ? formatColumnLabel(yKey) : yAxisLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expandedRange.points.map((point) => (
+                  <tr key={point.label}>
+                    <td>{point.label}</td>
+                    <td>{formatBtzsChartCell(point.x)}</td>
+                    <td>{formatBtzsChartCell(point.y)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {rawPoints.length > 0 && (
@@ -1378,6 +1641,15 @@ function ProfileViewCard({
             <DetailRow label="Flare density" value={profile.flareDensityText} />
             <DetailRow label="Paper ES" value={profile.paperEsText} />
             <DetailRow label="Method" value={profile.methodText} />
+            <DetailRow label="Curve interpolation" value={profile.btzsCurveInterpolationEnabled ? "on" : "off"} />
+            <DetailRow
+              label="Range expansion"
+              value={
+                profile.btzsExtrapolationStops && profile.btzsExtrapolationStops > 0
+                  ? `±${formatBtzsDisplayNumber(profile.btzsExtrapolationStops)} stops · experimental`
+                  : "off"
+              }
+            />
           </>
         )}
       </dl>
@@ -1419,7 +1691,12 @@ function ProfileViewCard({
             {profile.chartData && profile.chartData.length > 0 ? (
               <div className="btzs-chart-pair">
                 {profile.chartData.map((chart, index) => (
-                  <ChartCard key={`${profile.id}-chart-${index}`} chart={chart} />
+                  <ChartCard
+                    key={`${profile.id}-chart-${index}`}
+                    chart={chart}
+                    curveInterpolationEnabled={profile.btzsCurveInterpolationEnabled}
+                    extrapolationStops={profile.btzsExtrapolationStops}
+                  />
                 ))}
               </div>
             ) : (
@@ -1540,7 +1817,7 @@ export function FilmStockDetailPage() {
       setImportParsing(false);
       setImportSaving(false);
       if (wantsImport && !isBlackAndWhite) {
-        navigate(FILM_STOCK_DETAIL_PATH(id), { replace: true });
+        navigate(FILM_STOCK_PROFILES_PATH(id), { replace: true });
       }
       return;
     }
@@ -1599,7 +1876,7 @@ export function FilmStockDetailPage() {
     setImportSaving(false);
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.get("import") === "1") {
-      navigate(FILM_STOCK_DETAIL_PATH(id), { replace: true });
+      navigate(FILM_STOCK_PROFILES_PATH(id), { replace: true });
     }
   };
 
@@ -1622,13 +1899,8 @@ export function FilmStockDetailPage() {
     setCreateError(null);
     setCreateSaving(false);
     if (id && new URLSearchParams(location.search).get("profile") === "new") {
-      navigate(FILM_STOCK_DETAIL_PATH(id), { replace: true });
+      navigate(FILM_STOCK_PROFILES_PATH(id), { replace: true });
     }
-  };
-
-  const handleStockPresetChange = (presetKey: string) => {
-    const preset = FILM_STOCK_PRESETS.find((item) => item.key === presetKey);
-    setStockDraft((current) => applyFilmStockPreset(current, preset));
   };
 
   const handleStockSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -1787,37 +2059,29 @@ export function FilmStockDetailPage() {
     return null;
   }
 
-  const reciprocityPFactor = filmStock.reciprocity_p_factor ?? 1;
+  const isProfilesPage = location.pathname.includes("/development-profiles");
+  const profilesPath = FILM_STOCK_PROFILES_PATH(filmStock.id);
   const collectionNav = getCollectionNavigationState(filmStockCollection, filmStock.id);
   const collectionPositionLabel = collectionNav.currentIndex != null
     ? `${collectionNav.currentIndex + 1} of ${collectionNav.total}`
     : null;
 
-  return (
-    <CollectionSwipeNavigator
-      collectionLabel="film stock"
-      positionLabel={collectionPositionLabel}
-      previous={collectionNav.previous ? {
-        to: FILM_STOCK_DETAIL_PATH(collectionNav.previous.item.id),
-        label: collectionNav.previous.item.name,
-      } : null}
-      next={collectionNav.next ? {
-        to: FILM_STOCK_DETAIL_PATH(collectionNav.next.item.id),
-        label: collectionNav.next.item.name,
-      } : null}
-    >
+  const page = (
     <div className="page page-wide film-stock-detail-page">
       <div className="page-header">
         <div>
-          <p className="page-count">Film stock</p>
-          <h1>{filmStock.name}</h1>
+          <p className="page-count">{isProfilesPage ? "Development profiles" : "Film stock"}</p>
+          <h1>{isProfilesPage ? "Development profiles" : filmStock.name}</h1>
           <p className="page-count">
+            {isProfilesPage ? `${filmStock.name} · ` : ""}
             {profiles.length} development profile{profiles.length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="page-header-actions">
-          <Link className="btn-secondary" to={FILM_STOCK_LIST_PATH}>Back to film stocks</Link>
-        </div>
+        {isProfilesPage && (
+          <div className="page-header-actions">
+            <Link className="btn-secondary" to={FILM_STOCK_DETAIL_PATH(filmStock.id)}>← Back to stock</Link>
+          </div>
+        )}
       </div>
 
       {showImportForm && (
@@ -1868,110 +2132,147 @@ export function FilmStockDetailPage() {
         </DevelopmentProfileModal>
       )}
 
-      <section className="film-stock-editor-card">
-        <div className="film-stock-editor-card-header">
-          <div>
-            <h2>Edit stock</h2>
-            <p className="page-count">Film identity, reciprocity, and spectral response settings.</p>
-          </div>
-          <dl className="detail-grid film-stock-editor-summary">
-            <DetailRow label="Created" value={new Date(filmStock.created_at).toLocaleString()} />
-            <DetailRow label="Film stock ID" value={filmStock.id} />
-            <DetailRow label="Current P factor" value={String(reciprocityPFactor)} />
-            <DetailRow
-              label="Current spectral simulation"
-              value={filmStock.simulate_spectral_response
-                ? formatFilmSpectralResponseLabel(filmStock.spectral_response_preset)
-                : "Off"}
-            />
-          </dl>
-        </div>
-        <form className="resource-form resource-form--compact film-stock-inline-form" onSubmit={handleStockSubmit} noValidate>
-          {stockError && <p className="form-error">{stockError}</p>}
-          <FilmStockFormFields
-            draft={stockDraft}
-            onChange={setStockDraft}
-            presets={FILM_STOCK_PRESETS}
-            onPresetChange={handleStockPresetChange}
-          />
-          <div className="form-actions resource-form-actions">
-            <button className="btn-primary" type="submit" disabled={stockSaving || isOffline}>
-              {stockSaving ? "Saving…" : "Save stock"}
-            </button>
-            {isOffline && <p className="field-note form-action-note">Editing film stocks is disabled while offline.</p>}
-          </div>
-        </form>
-      </section>
-
-      <dl className="detail-grid film-stock-detail-summary">
-        <DetailRow
-          label="Stock type"
-          value={
-            <span className={`film-stock-type-badge film-stock-type-badge--${filmStock.stock_type}`}>
-              {formatFilmStockTypeLabel(filmStock.stock_type)}
-            </span>
-          }
-        />
-        <DetailRow label="ISO" value={filmStock.iso != null ? `ISO ${filmStock.iso}` : null} />
-        <DetailRow label="Process" value={filmStock.process} />
-      </dl>
-
-      <p className="muted">Development profiles and imported BTZS data stay attached to this stock.</p>
-
-      <section className="profiles-section">
-        <div className="profiles-section-header">
-          <div>
-            <h2>Development profiles</h2>
-            <p className="page-count">
-              Simple profiles keep a time value. BTZS profiles can carry chart data, source metadata, and imported
-              XDF details.
-            </p>
-          </div>
-          <div className="profiles-section-actions">
-            <div className="page-header-actions">
-              {showImportForm ? (
-                <button className="btn-secondary" onClick={cancelImport}>
-                  Close import
+      {!isProfilesPage && (
+        <>
+          <section className="film-stock-editor-card">
+            <form className="resource-form resource-form--compact film-stock-inline-form" onSubmit={handleStockSubmit} noValidate>
+              {stockError && <p className="form-error">{stockError}</p>}
+              <FilmStockFormFields
+                draft={stockDraft}
+                onChange={setStockDraft}
+                showSpectralResponse={false}
+              />
+              <div className="form-actions resource-form-actions">
+                <button className="btn-primary" type="submit" disabled={stockSaving || isOffline}>
+                  {stockSaving ? "Saving…" : "Save stock"}
                 </button>
-              ) : isBlackAndWhite ? (
-                <button className="btn-secondary" type="button" onClick={() => navigate(FILM_STOCK_IMPORT_PATH(filmStock.id), { replace: true })}>
-                  Import BTZS / XDF profile
-                </button>
-              ) : (
-                <button className="btn-secondary" type="button" disabled>
-                  Import BTZS / XDF profile
-                </button>
-              )}
-              <button className="btn-primary" type="button" onClick={startCreate}>
-                Add profile
-              </button>
+                {isOffline && <p className="field-note form-action-note">Editing film stocks is disabled while offline.</p>}
+              </div>
+            </form>
+          </section>
+
+          <section className="film-stock-profile-overview">
+            <div className="profiles-section-header">
+              <div>
+                <h2>Development profiles</h2>
+                <p className="page-count">Profiles stay attached to this stock and drive timer/metering workflows.</p>
+              </div>
+              <Link className="btn-primary" to={profilesPath}>Manage profiles</Link>
             </div>
-            {!isBlackAndWhite && !showImportForm && (
-              <p className="film-stock-availability-note">
-                {getFilmStockTypeAvailabilityText(filmStock.stock_type)}
-              </p>
+
+            {profiles.length === 0 ? (
+              <div className="film-stock-profile-empty-card">
+                <p>No development profiles yet.</p>
+                <Link to={FILM_STOCK_PROFILE_NEW_PATH(filmStock.id)}>Add a development profile</Link>
+              </div>
+            ) : (
+              <div className="development-profile-summary-grid">
+                {profiles.map((profile) => (
+                  <DevelopmentProfileSummaryCard key={profile.id} profile={profile} to={profilesPath} />
+                ))}
+              </div>
             )}
+          </section>
+
+          <section className="film-stock-editor-card film-stock-spectral-panel">
+            <div className="film-stock-spectral-panel-header">
+              <h2>Spectral simulation</h2>
+              <p className="page-count">Optional B&W reference-image response simulation. This does not replace development profiles.</p>
+            </div>
+            <form className="resource-form resource-form--compact film-stock-inline-form" onSubmit={handleStockSubmit} noValidate>
+              {stockError && <p className="form-error">{stockError}</p>}
+              <FilmStockSpectralResponseFields draft={stockDraft} onChange={setStockDraft} />
+              <div className="form-actions resource-form-actions">
+                <button className="btn-primary" type="submit" disabled={stockSaving || isOffline}>
+                  {stockSaving ? "Saving…" : "Save spectral simulation"}
+                </button>
+                {isOffline && <p className="field-note form-action-note">Editing film stocks is disabled while offline.</p>}
+              </div>
+            </form>
+          </section>
+        </>
+      )}
+
+      {isProfilesPage && (
+        <section className="profiles-section profiles-section--standalone">
+          <div className="profiles-section-header">
+            <div>
+              <h2>{filmStock.name}</h2>
+              <p className="page-count">
+                Simple profiles keep a time value. BTZS profiles can carry chart data, source metadata, and imported
+                XDF details.
+              </p>
+            </div>
+            <div className="profiles-section-actions">
+              <div className="page-header-actions">
+                {showImportForm ? (
+                  <button className="btn-secondary" onClick={cancelImport}>
+                    Close import
+                  </button>
+                ) : isBlackAndWhite ? (
+                  <button className="btn-secondary" type="button" onClick={() => navigate(FILM_STOCK_IMPORT_PATH(filmStock.id), { replace: true })}>
+                    Import BTZS / XDF profile
+                  </button>
+                ) : (
+                  <button className="btn-secondary" type="button" disabled>
+                    Import BTZS / XDF profile
+                  </button>
+                )}
+                <button className="btn-primary" type="button" onClick={startCreate}>
+                  Add profile
+                </button>
+              </div>
+              {!isBlackAndWhite && !showImportForm && (
+                <p className="film-stock-availability-note">
+                  {getFilmStockTypeAvailabilityText(filmStock.stock_type)}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {profiles.length === 0 && (
-          <p className="muted">No development profiles yet. Import a BTZS / XDF profile or add a simple profile to get started.</p>
-        )}
+          {profiles.length === 0 && (
+            <div className="film-stock-profile-empty-card">
+              <p>No development profiles yet. Import a BTZS / XDF profile or add a simple profile to get started.</p>
+              <button className="btn-secondary" type="button" onClick={startCreate}>Add a development profile</button>
+            </div>
+          )}
 
-        <div className="profile-stack">
-          {profiles.map((profile) => (
-            <ProfileViewCard
-              key={profile.id}
-              profile={profile}
-              editDisabledReason={!isBlackAndWhite && profile.type === "btzs" ? FILM_STOCK_BTZS_ONLY_REASON : null}
-              deleteDisabledReason={isOffline ? "Delete actions are disabled while offline." : null}
-              onEdit={() => startEdit(profile)}
-              onDelete={() => handleDelete(profile)}
-            />
-          ))}
-        </div>
-      </section>
+          <div className="profile-stack">
+            {profiles.map((profile) => (
+              <ProfileViewCard
+                key={profile.id}
+                profile={profile}
+                editDisabledReason={!isBlackAndWhite && profile.type === "btzs" ? FILM_STOCK_BTZS_ONLY_REASON : null}
+                deleteDisabledReason={isOffline ? "Delete actions are disabled while offline." : null}
+                onEdit={() => startEdit(profile)}
+                onDelete={() => handleDelete(profile)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
+  );
+
+  if (isProfilesPage) {
+    return page;
+  }
+
+  return (
+    <CollectionSwipeNavigator
+      collectionLabel="film stock"
+      positionLabel={collectionPositionLabel}
+      navigationWidth="wide"
+      previous={collectionNav.previous ? {
+        to: FILM_STOCK_DETAIL_PATH(collectionNav.previous.item.id),
+        label: collectionNav.previous.item.name,
+      } : null}
+      next={collectionNav.next ? {
+        to: FILM_STOCK_DETAIL_PATH(collectionNav.next.item.id),
+        label: collectionNav.next.item.name,
+      } : null}
+    >
+      {page}
     </CollectionSwipeNavigator>
   );
 }

@@ -49,6 +49,8 @@ const BTZS_CREATE_KEYS = new Set([
   "rawXdf",
   "chartData",
   "sourceFiles",
+  "btzsCurveInterpolationEnabled",
+  "btzsExtrapolationStops",
 ]);
 
 const SIMPLE_UPDATE_KEYS = new Set([
@@ -82,6 +84,8 @@ const BTZS_UPDATE_KEYS = new Set([
   "rawXdf",
   "chartData",
   "sourceFiles",
+  "btzsCurveInterpolationEnabled",
+  "btzsExtrapolationStops",
 ]);
 
 const RAW_XDF_LEGACY_PAPER_ES_SCALE = 100;
@@ -153,6 +157,57 @@ function appendOptionalPositiveNumberUpdate(
 ) {
   if (!hasOwn(body, field)) return;
   updates.push([column, parseOptionalPositiveNumberField(body, field, defaultValue)]);
+}
+
+function parseOptionalBooleanField(
+  body: Record<string, unknown>,
+  field: string,
+  defaultValue: boolean,
+): boolean {
+  if (!hasOwn(body, field) || body[field] == null || body[field] === "") return defaultValue;
+  if (typeof body[field] !== "boolean") {
+    throw new Error(`${field} must be a boolean`);
+  }
+  return body[field];
+}
+
+function parseOptionalNonNegativeNumberField(
+  body: Record<string, unknown>,
+  field: string,
+  defaultValue: number,
+): number {
+  if (!hasOwn(body, field) || body[field] == null || body[field] === "") return defaultValue;
+  const value = typeof body[field] === "number"
+    ? body[field]
+    : typeof body[field] === "string"
+      ? Number(body[field].trim())
+      : Number.NaN;
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${field} must be zero or greater`);
+  }
+  return value;
+}
+
+function appendOptionalBooleanUpdate(
+  body: Record<string, unknown>,
+  updates: Array<[string, string | number | null]>,
+  field: string,
+  column: string,
+  defaultValue: boolean,
+) {
+  if (!hasOwn(body, field)) return;
+  updates.push([column, parseOptionalBooleanField(body, field, defaultValue) ? 1 : 0]);
+}
+
+function appendOptionalNonNegativeNumberUpdate(
+  body: Record<string, unknown>,
+  updates: Array<[string, string | number | null]>,
+  field: string,
+  column: string,
+  defaultValue: number,
+) {
+  if (!hasOwn(body, field)) return;
+  updates.push([column, parseOptionalNonNegativeNumberField(body, field, defaultValue)]);
 }
 
 function parseRequiredTextField(body: Record<string, unknown>, field: string): string {
@@ -469,6 +524,8 @@ function toDevelopmentProfileResponse(row: DevelopmentProfileRow): DevelopmentPr
     chartData: parseJsonArrayColumn(row.chart_data) as BTZSChartData[] | null,
     sourceFiles: parseJsonArrayColumn(row.source_files) as BTZSSourceFile[] | null,
     rawXdf: parseRawXdfColumn(row.raw_xdf),
+    btzsCurveInterpolationEnabled: Boolean(row.btzs_curve_interpolation_enabled),
+    btzsExtrapolationStops: row.btzs_extrapolation_stops ?? 0,
   };
   return btzsProfile;
 }
@@ -549,6 +606,12 @@ developmentProfiles.post("/", async (c) => {
     const rawXdf = profileType === "btzs" ? parseRawXdfField(body, "rawXdf") : null;
     const chartData = profileType === "btzs" ? parseJsonArrayField(body, "chartData") : null;
     const sourceFiles = profileType === "btzs" ? parseJsonArrayField(body, "sourceFiles") : null;
+    const btzsCurveInterpolationEnabled = profileType === "btzs"
+      ? parseOptionalBooleanField(body, "btzsCurveInterpolationEnabled", false)
+      : false;
+    const btzsExtrapolationStops = profileType === "btzs"
+      ? parseOptionalNonNegativeNumberField(body, "btzsExtrapolationStops", 0)
+      : 0;
 
     const id = ulid();
     const now = new Date().toISOString();
@@ -578,12 +641,14 @@ developmentProfiles.post("/", async (c) => {
       simple_n_minus_one_percent: nMinusOnePercent,
       simple_n_plus_one_percent: nPlusOnePercent,
       simple_n_plus_two_percent: nPlusTwoPercent,
+      btzs_curve_interpolation_enabled: btzsCurveInterpolationEnabled ? 1 : 0,
+      btzs_extrapolation_stops: btzsExtrapolationStops,
       created_at: now,
       updated_at: now,
     };
 
     await c.env.DB.prepare(
-      "INSERT INTO development_profiles (id, user_id, film_id, profile_type, name, developer_name, dilution, temperature_text, agitation, notes, time_text, film_iso, test_date, curves_text, flare_density_text, paper_es_text, method_text, key_values_text, raw_xdf, chart_data, source_files, simple_n_minus_two_percent, simple_n_minus_one_percent, simple_n_plus_one_percent, simple_n_plus_two_percent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO development_profiles (id, user_id, film_id, profile_type, name, developer_name, dilution, temperature_text, agitation, notes, time_text, film_iso, test_date, curves_text, flare_density_text, paper_es_text, method_text, key_values_text, raw_xdf, chart_data, source_files, simple_n_minus_two_percent, simple_n_minus_one_percent, simple_n_plus_one_percent, simple_n_plus_two_percent, btzs_curve_interpolation_enabled, btzs_extrapolation_stops, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
       .bind(
         row.id,
@@ -611,6 +676,8 @@ developmentProfiles.post("/", async (c) => {
         row.simple_n_minus_one_percent,
         row.simple_n_plus_one_percent,
         row.simple_n_plus_two_percent,
+        row.btzs_curve_interpolation_enabled,
+        row.btzs_extrapolation_stops,
         row.created_at,
         row.updated_at,
       )
@@ -706,6 +773,8 @@ developmentProfiles.patch("/:profileId", async (c) => {
         const sourceFiles = parseJsonArrayField(body, "sourceFiles");
         updates.push(["source_files", sourceFiles === null ? null : JSON.stringify(sourceFiles)]);
       }
+      appendOptionalBooleanUpdate(body, updates, "btzsCurveInterpolationEnabled", "btzs_curve_interpolation_enabled", false);
+      appendOptionalNonNegativeNumberUpdate(body, updates, "btzsExtrapolationStops", "btzs_extrapolation_stops", 0);
     }
 
     if (updates.length === 0) {

@@ -144,7 +144,7 @@ describe("api client health checks", () => {
   it("calls /api/health without auth headers", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       ok: true,
-      service: "phototracker",
+      service: "darkcloth",
     }), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -163,7 +163,7 @@ describe("api client health checks", () => {
 
     expect(health).toEqual({
       ok: true,
-      service: "phototracker",
+      service: "darkcloth",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 

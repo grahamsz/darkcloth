@@ -1,5 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { AppNav } from "./AppNav";
+import { EmailVerificationBanner } from "./EmailVerificationBanner";
+import { SiteBottomBar } from "./SiteBottomBar";
 import { useConnectivity } from "../contexts/ConnectivityContext";
 import { getPwaDisplayMode } from "../offline/cache";
 
@@ -38,9 +40,11 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <AppNav />
+      <EmailVerificationBanner />
       <main className="app-main">
         <Outlet />
       </main>
+      <SiteBottomBar />
       <AppSyncBottomBar />
     </div>
   );

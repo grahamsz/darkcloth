@@ -1,5 +1,10 @@
-import { Link, Navigate } from "react-router-dom";
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { SiteBottomBar } from "../components/SiteBottomBar";
+
+const BTZS_PROFILE_SERVICE_URL = "https://viewcamerastore.com/collections/btzs-products/products/btzs-film-test-roll";
+const BTZS_COMMUNITY_URL = "https://btzs.org/";
 
 function IconFilm() {
   return (
@@ -65,10 +70,89 @@ function IconImage() {
   );
 }
 
-export function LandingPage() {
-  const { user, loading } = useAuth();
+function LandingComparisonSlider() {
+  const [split, setSplit] = useState(52);
+  const [dragging, setDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  if (!loading && user) return <Navigate to="/app/photos" replace />;
+  const updateSplitFromPointer = (clientX: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const next = ((clientX - rect.left) / rect.width) * 100;
+    setSplit(Math.min(95, Math.max(5, next)));
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragging(true);
+    updateSplitFromPointer(event.clientX);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragging) updateSplitFromPointer(event.clientX);
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    setDragging(false);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSplit(current => Math.max(5, current - 2));
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSplit(current => Math.min(95, current + 2));
+    }
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={[
+        "filter-simulation-comparison",
+        "landing-filter-comparison",
+        dragging ? "filter-simulation-comparison--dragging" : "",
+      ].filter(Boolean).join(" ")}
+      style={{ "--filter-simulation-split": `${split}%` } as CSSProperties}
+      role="slider"
+      tabIndex={0}
+      aria-label="Reference image filter comparison"
+      aria-valuemin={5}
+      aria-valuemax={95}
+      aria-valuenow={Math.round(split)}
+      aria-valuetext={`${Math.round(split)} percent filtered comparison`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => setDragging(false)}
+      onKeyDown={handleKeyDown}
+    >
+      <img
+        className="filter-simulation-comparison-canvas landing-filter-comparison-image"
+        src="/landing-sample-no-filter.jpg"
+        alt="Reference image without a filter preview"
+        draggable={false}
+        onDragStart={(event) => event.preventDefault()}
+      />
+      <img
+        className="filter-simulation-comparison-canvas filter-simulation-comparison-canvas--filtered landing-filter-comparison-image"
+        src="/landing-sample-filter.jpg"
+        alt="Reference image with a filter preview"
+        draggable={false}
+        onDragStart={(event) => event.preventDefault()}
+      />
+      <div className="filter-simulation-comparison-label filter-simulation-comparison-label--left">No filter</div>
+      <div className="filter-simulation-comparison-label filter-simulation-comparison-label--right">Red filter</div>
+      <div className="filter-simulation-comparison-divider" aria-hidden="true" />
+    </div>
+  );
+}
+
+export function LandingPage() {
+  const { user } = useAuth();
 
   return (
     <div className="landing-shell">
@@ -80,110 +164,125 @@ export function LandingPage() {
           </span>
         </a>
         <div className="nav-links">
-          <Link to="/login">Sign in</Link>
-          <Link className="button" to="/register">Get started</Link>
+          {user ? (
+            <Link className="button button-accent" to="/app/photos">Go to App &gt;</Link>
+          ) : (
+            <>
+              <Link to="/login">Sign in</Link>
+              <Link className="button" to="/register">Get started</Link>
+            </>
+          )}
         </div>
       </nav>
 
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">
-            <span className="brand-wordmark" aria-label="Darkcloth">
+          <p className="landing-logotype">
+            <span className="brand-wordmark" aria-label="darkcloth">
               <span className="brand-wordmark-dark">dark</span>
               <span className="brand-wordmark-cloth">cloth</span>
             </span>
           </p>
-          <h1>Track every frame from camera to contact sheet.</h1>
+          <h1>A field notebook for large format photographers.</h1>
           <p className="lede">
-            A field notebook for film photography. Record film, lens, camera, exposure, GPS coordinates, notes, and
-            reference images for every photograph.
+            Record holders, film, lens, camera, exposure, location, notes, reference images, and development details
+            while you are still in the field.
           </p>
           <div className="actions">
-            <Link className="primary" to="/register">Start logging</Link>
-            <a className="secondary" href="/downloads/phototracker-android-v1.0.apk" download>Android app</a>
+            {user ? (
+              <Link className="primary" to="/app/photos">Go to App &gt;</Link>
+            ) : (
+              <Link className="primary" to="/register">Start logging</Link>
+            )}
           </div>
         </div>
 
-        <div className="log-preview" aria-label="Photograph log preview">
-          <div className="preview-roll-header">
-            <span className="preview-roll-label">Roll 3</span>
-            <strong className="preview-film-name">Kodak Portra 400</strong>
-            <span className="preview-roll-meta">ISO 400 · C-41</span>
+        <figure className="landing-product-shot landing-product-shot--hero">
+          <img src="/landing-photo-log.webp" alt="Darkcloth photo log running on a phone" />
+        </figure>
+      </section>
+
+      <section className="landing-proof-grid" aria-label="Key Darkcloth features">
+        <div><strong>Free</strong><span>I built this for myself. If it gets thousands of users and costs real money to run I might have to reconsider, but it's also open source.</span></div>
+        <div><strong>Open Source</strong><span>AGPL licensed so you can run your own instance.</span></div>
+        <div><strong>Open API</strong><span>Documented API for your own workflows.</span></div>
+        <div><strong>Works Offline</strong><span>Install as a Progressive Web App and continue logging without an internet connection.</span></div>
+      </section>
+
+      <section className="landing-section landing-data-section" aria-labelledby="landing-data-title">
+        <div className="landing-section-copy">
+          <p className="section-kicker">Complete field notes</p>
+          <h2 id="landing-data-title">Capture all the data that matters before it gets lost.</h2>
+          <p>
+            darkcloth lets you use your cellphone camera to capture a reference image, then log all the details of your shot alongside it. Never forget a film type, exposure, or location again. If you use <a href="https://btzs.org/" target="_blank" rel="noopener noreferrer">Beyond the Zone System</a> profiles and spot-metering then darkcloth will calculate the exposure and development times for you.
+          </p>
+        </div>
+        <figure className="landing-product-shot landing-product-shot--detail">
+          <img src="/landing-photo-detail.webp" alt="Darkcloth photograph detail view with camera, lens, film, exposure, date, and location" />
+        </figure>
+      </section>
+
+      <section className="landing-section landing-reference-section" aria-labelledby="landing-reference-title">
+        <div className="landing-section-copy">
+          <p className="section-kicker">Reference image preview</p>
+          <h2 id="landing-reference-title">Use a cellphone reference image to preview filter decisions.</h2>
+          <p>
+            Attach a quick phone image to the log and preview a black-and-white filter response before you set up the
+            camera. Drag the divider to compare the straight reference with the filtered preview.
+          </p>
+        </div>
+        <div className="landing-reference-demo">
+          <LandingComparisonSlider />
+        </div>
+      </section>
+
+      <section className="landing-section landing-exposure-section" aria-labelledby="landing-exposure-title">
+        <div className="landing-section-copy">
+          <p className="section-kicker">Exposure methods</p>
+          <h2 id="landing-exposure-title">Meter the way you actually work.</h2>
+          <p>
+            Enter the exposure yourself, estimate from the cell phone reference, or use BTZS profiles to calculate from your spot-meter placements.
+          </p>
+          <div className="landing-link-list">
+            <a href={BTZS_PROFILE_SERVICE_URL} target="_blank" rel="noopener noreferrer">Get BTZS profiles made</a>
+            <a href={BTZS_COMMUNITY_URL} target="_blank" rel="noopener noreferrer">Beyond the Zone System community</a>
           </div>
-          <div className="preview-frame">
-            <div className="preview-frame-number">12</div>
-            <dl>
-              <div><dt>Camera</dt><dd>Nikon FM2</dd></div>
-              <div><dt>Lens</dt><dd>50mm f/1.8</dd></div>
-              <div><dt>Exposure</dt><dd>1/250 · f/5.6</dd></div>
-              <div><dt>GPS</dt><dd>40.7608, −111.8910</dd></div>
-              <div><dt>Notes</dt><dd className="preview-notes">afternoon light, street corner</dd></div>
-            </dl>
-            <div className="reference-image"></div>
+        </div>
+        <div className="landing-metering-stack">
+          <figure className="landing-btzs-screenshot">
+            <img src="/landing-btzs-profile.webp" alt="BTZS development profile charts in darkcloth" />
+          </figure>
+          <div className="landing-method-grid">
+            <div>
+              <strong>Cellphone reference image</strong>
+              <p>Use a location photo as a visual memory aid and filter-preview source for the logged sheet.</p>
+            </div>
+            <div>
+              <strong>Spot metering</strong>
+              <p>Record shadow and highlight placements, zone range, target EV, and the resulting exposure.</p>
+            </div>
+            <div>
+              <strong>BTZS profiles</strong>
+              <p>Calculate from BTZS film profiles, including development targets and effective film speed.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="features" aria-label="Features">
-        <div className="feature-item">
-          <span className="feature-icon"><IconFilm /></span>
-          <h3>Film & Rolls</h3>
-          <p>Track film stocks by name, ISO, and process. Log loading and development dates per roll.</p>
+      <section className="landing-section landing-timer-section" aria-labelledby="landing-timer-title">
+        <div className="landing-section-copy">
+          <p className="section-kicker">Darkroom timer</p>
+          <h2 id="landing-timer-title">Keep multiple sheets moving through development.</h2>
+          <p>
+            Processing multiple sheets at once and taking them out at the right time used to be pain, but darkcloth's timer lets you track multiple sheets at once.
+          </p>
         </div>
-        <div className="feature-item">
-          <span className="feature-icon"><IconCamera /></span>
-          <h3>Camera inventory</h3>
-          <p>Catalog your cameras with make and model. Attach them to individual frames for complete records.</p>
-        </div>
-        <div className="feature-item">
-          <span className="feature-icon"><IconLens /></span>
-          <h3>Lens library</h3>
-          <p>Store focal length and maximum aperture. Know which glass made which shot.</p>
-        </div>
-        <div className="feature-item">
-          <span className="feature-icon"><IconExposure /></span>
-          <h3>Exposure data</h3>
-          <p>Record shutter speed, aperture, and compensation. Log notes per frame, not per roll.</p>
-        </div>
-        <div className="feature-item">
-          <span className="feature-icon"><IconGPS /></span>
-          <h3>GPS coordinates</h3>
-          <p>Latitude and longitude per photograph. Know exactly where on earth each frame was made.</p>
-        </div>
-        <div className="feature-item">
-          <span className="feature-icon"><IconImage /></span>
-          <h3>Reference images</h3>
-          <p>Attach images to any frame — test prints, contact sheet scans, location photos.</p>
-        </div>
+        <figure className="landing-product-shot landing-product-shot--timer">
+          <img src="/landing-darkroom-timer.webp" alt="Darkcloth multi-sheet darkroom development timer" />
+        </figure>
       </section>
 
-      <section className="support-band" aria-labelledby="support-darkcloth-title">
-        <div className="support-copy">
-          <p className="support-kicker">Support</p>
-          <h2 id="support-darkcloth-title">Support the development of Darkcloth.</h2>
-        </div>
-        <a
-          className="secondary support-link"
-          href="https://buymeacoffee.com/grahamsz"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Buy Me a Coffee
-        </a>
-      </section>
-
-      <footer className="landing-footer">
-        <span className="brand-wordmark" aria-label="Darkcloth">
-          <span className="brand-wordmark-dark">dark</span>
-          <span className="brand-wordmark-cloth">cloth</span>
-        </span>
-        <nav aria-label="Footer">
-          <Link to="/login">Sign in</Link>
-          <Link to="/register">Register</Link>
-          <a href="/api/openapi.yaml">API</a>
-          <a href="/downloads/phototracker-android-v1.0.apk" download>Android</a>
-        </nav>
-      </footer>
+      <SiteBottomBar />
     </div>
   );
 }

@@ -38,8 +38,11 @@ export function RegisterPage() {
             <span className="brand-wordmark-cloth">cloth</span>
           </span>
         </Link>
-        <p className="auth-tagline">A field notebook for film photography.</p>
+        <p className="auth-tagline">A field notebook for large format photographers.</p>
         <h1>Create account</h1>
+        <p className="auth-note">
+          We will not send many emails. The creator may occasionally reach out for feedback.
+        </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           {error && <p className="form-error">{error}</p>}

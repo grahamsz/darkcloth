@@ -853,6 +853,8 @@ export function PhotoNewPage() {
           flareFactor,
           meterIso: 100,
           chartData: selectedBtzsProfile.chartData,
+          curveInterpolation: selectedBtzsProfile.btzsCurveInterpolationEnabled,
+          extrapolationStops: selectedBtzsProfile.btzsExtrapolationStops,
           compensationStops,
           bellowsCorrectionStops: bellowsCorrection.stops,
           filterFactors: selectedFilters,
@@ -1935,23 +1937,6 @@ export function PhotoNewPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="log-form">
-        {error && <p className="form-error">{error}</p>}
-        {createdPhotoId && error && (
-          <p className="muted" style={{ margin: 0 }}>
-            {referenceImageUploads.length > 0 ? (
-              <>
-                Retry the remaining files below or{" "}
-                <Link to={`/app/photos/${createdPhotoId}`}>open the detail page</Link> to review the saved photograph.
-              </>
-            ) : (
-              <>
-                The photograph was created.{" "}
-                <Link to={`/app/photos/${createdPhotoId}`}>Open the detail page</Link> to review it.
-              </>
-            )}
-          </p>
-        )}
-
         <IdentityFieldset title={form.title} onFieldChange={set} />
 
         <GearMediaFieldsets
@@ -2100,6 +2085,22 @@ export function PhotoNewPage() {
         </div>
 
         <div className="form-actions log-form-submit">
+          {error && <p className="form-error" aria-live="polite">{error}</p>}
+          {createdPhotoId && error && (
+            <p className="muted" style={{ margin: 0 }}>
+              {referenceImageUploads.length > 0 ? (
+                <>
+                  Retry the remaining files below or{" "}
+                  <Link to={`/app/photos/${createdPhotoId}`}>open the detail page</Link> to review the saved photograph.
+                </>
+              ) : (
+                <>
+                  The photograph was created.{" "}
+                  <Link to={`/app/photos/${createdPhotoId}`}>Open the detail page</Link> to review it.
+                </>
+              )}
+            </p>
+          )}
           <button
             type="submit"
             className="btn-primary"

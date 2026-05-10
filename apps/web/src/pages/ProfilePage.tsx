@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { useConnectivity } from "../contexts/ConnectivityContext";
@@ -61,7 +60,6 @@ function formatJobImageId(job: ReferenceImageProcessingJobRecord) {
 
 export function ProfilePage() {
   const { user, replaceUser, logout } = useAuth();
-  const navigate = useNavigate();
   const { view: connectivityView } = useConnectivity();
   const browserTimeZone = useMemo(() => getBrowserTimeZone(), []);
   const timezoneOptions = useMemo(() => getTimezoneOptions(browserTimeZone), [browserTimeZone]);
@@ -322,7 +320,7 @@ export function ProfilePage() {
 
   const handleLogout = () => {
     logout();
-    navigate("/", { replace: true });
+    window.location.replace("/");
   };
 
   const handleExportWorkbook = async () => {

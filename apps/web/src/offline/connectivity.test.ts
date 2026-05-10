@@ -81,7 +81,7 @@ describe("connectivity controller", () => {
   it("uses the API health check even when the browser reports offline", async () => {
     const controller = createConnectivityController({
       getBrowserOnline: () => false,
-      healthCheck: vi.fn().mockResolvedValue({ ok: true, service: "phototracker" }),
+      healthCheck: vi.fn().mockResolvedValue({ ok: true, service: "darkcloth" }),
       readSyncQueueCounts: vi.fn().mockResolvedValue({ pendingCount: 0, failedCount: 0 }),
       now: () => "2026-05-02T00:00:00.000Z",
     });
@@ -101,7 +101,7 @@ describe("connectivity controller", () => {
     const healthCheck = vi
       .fn()
       .mockRejectedValueOnce(new Error("API unreachable"))
-      .mockResolvedValueOnce({ ok: true, service: "phototracker" });
+      .mockResolvedValueOnce({ ok: true, service: "darkcloth" });
     const readSyncQueueCounts = vi
       .fn()
       .mockResolvedValueOnce({ pendingCount: 2, failedCount: 1 })
@@ -146,7 +146,7 @@ describe("connectivity controller", () => {
       const healthCheck = vi
         .fn()
         .mockRejectedValueOnce(new Error("API temporarily unreachable"))
-        .mockResolvedValueOnce({ ok: true, service: "phototracker" });
+        .mockResolvedValueOnce({ ok: true, service: "darkcloth" });
       const readSyncQueueCounts = vi.fn().mockResolvedValue({ pendingCount: 0, failedCount: 0 });
 
       const controller = createConnectivityController({
@@ -185,7 +185,7 @@ describe("connectivity controller", () => {
       const healthCheck = vi
         .fn()
         .mockRejectedValueOnce(new Error("PWA reported offline during refresh"))
-        .mockResolvedValueOnce({ ok: true, service: "phototracker" });
+        .mockResolvedValueOnce({ ok: true, service: "darkcloth" });
       const readSyncQueueCounts = vi.fn().mockResolvedValue({ pendingCount: 0, failedCount: 0 });
 
       const controller = createConnectivityController({

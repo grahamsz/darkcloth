@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const user = {
   id: "offline-user",
   email: "offline@example.test",
+  email_verified_at: "2026-05-04T00:00:00.000Z",
   default_timezone: "America/Denver",
   auto_use_current_location: false,
   created_at: "2026-05-04T00:00:00.000Z",
@@ -422,7 +423,7 @@ test("gear pages recover after transient refresh connectivity failures", async (
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ ok: true, service: "phototracker" }),
+      body: JSON.stringify({ ok: true, service: "darkcloth" }),
     });
   });
   await page.route("**/api/gear/cameras", async (route) => {

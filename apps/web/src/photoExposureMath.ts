@@ -87,6 +87,8 @@ export interface BtzsCalculationInput {
   meterIso: ExposureNumberInput;
   chartData?: readonly BTZSChartData[] | null;
   allowExtrapolation?: boolean | null;
+  curveInterpolation?: boolean | null;
+  extrapolationStops?: ExposureNumberInput;
   compensationStops?: ExposureNumberInput;
   bellowsCorrectionStops?: ExposureNumberInput;
   filterFactors?: readonly FilterFactorLike[] | null;
@@ -411,6 +413,231 @@ function interpolateLog2(y1: number, y2: number, ratio: number) {
   return Math.pow(2, interpolateLinear(Math.log2(y1), Math.log2(y2), ratio));
 }
 
+function resolveNonNegativeInput(value: ExposureNumberInput, fallback = 0) {
+  const parsed = parseFiniteNumberInput(value);
+  return parsed != null && parsed >= 0 ? parsed : fallback;
+}
+
+function transformBtzsY(metric: BtzsLookupMetric, value: number) {
+  return metric === "effectiveFilmSpeed" ? Math.log2(value) : value;
+}
+
+function untransformBtzsY(metric: BtzsLookupMetric, value: number) {
+  return metric === "effectiveFilmSpeed" ? Math.pow(2, value) : value;
+}
+
+function resolveMonotoneEndpointSlope(width: number, adjacentWidth: number, slope: number, adjacentSlope: number) {
+  let endpointSlope = (((2 * width) + adjacentWidth) * slope - (width * adjacentSlope)) / (width + adjacentWidth);
+  if (Math.sign(endpointSlope) !== Math.sign(slope)) {
+    endpointSlope = 0;
+  } else if (Math.sign(slope) !== Math.sign(adjacentSlope) && Math.abs(endpointSlope) > Math.abs(3 * slope)) {
+    endpointSlope = 3 * slope;
+  }
+  return endpointSlope;
+}
+
+function getMonotoneSlopes(points: BtzsSeriesPoint[], metric: BtzsLookupMetric) {
+  const transformed = points.map((point) => ({
+    x: point.x,
+    y: transformBtzsY(metric, point.y),
+  }));
+  const slopes = transformed.map(() => 0);
+  if (transformed.length < 2) return slopes;
+
+  const segmentSlopes = transformed.slice(0, -1).map((point, index) => {
+    const next = transformed[index + 1]!;
+    return (next.y - point.y) / (next.x - point.x);
+  });
+  const segmentWidths = transformed.slice(0, -1).map((point, index) => {
+    const next = transformed[index + 1]!;
+    return next.x - point.x;
+  });
+
+  if (transformed.length === 2) {
+    slopes[0] = segmentSlopes[0]!;
+    slopes[1] = segmentSlopes[0]!;
+    return slopes;
+  }
+
+  slopes[0] = resolveMonotoneEndpointSlope(segmentWidths[0]!, segmentWidths[1]!, segmentSlopes[0]!, segmentSlopes[1]!);
+  slopes[slopes.length - 1] = resolveMonotoneEndpointSlope(
+    segmentWidths[segmentWidths.length - 1]!,
+    segmentWidths[segmentWidths.length - 2]!,
+    segmentSlopes[segmentSlopes.length - 1]!,
+    segmentSlopes[segmentSlopes.length - 2]!,
+  );
+
+  for (let index = 1; index < transformed.length - 1; index += 1) {
+    const leftSlope = segmentSlopes[index - 1]!;
+    const rightSlope = segmentSlopes[index]!;
+    if (Math.abs(leftSlope) <= SMALL_NUMBER_EPSILON || Math.abs(rightSlope) <= SMALL_NUMBER_EPSILON || leftSlope * rightSlope <= 0) {
+      slopes[index] = 0;
+      continue;
+    }
+
+    const leftWidth = segmentWidths[index - 1]!;
+    const rightWidth = segmentWidths[index]!;
+    const weightLeft = (2 * rightWidth) + leftWidth;
+    const weightRight = rightWidth + (2 * leftWidth);
+    slopes[index] = (weightLeft + weightRight) / ((weightLeft / leftSlope) + (weightRight / rightSlope));
+  }
+
+  return slopes;
+}
+
+function evaluateCubicHermite(y0: number, y1: number, m0: number, m1: number, h: number, t: number) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const h00 = (2 * t3) - (3 * t2) + 1;
+  const h10 = t3 - (2 * t2) + t;
+  const h01 = (-2 * t3) + (3 * t2);
+  const h11 = t3 - t2;
+  return (h00 * y0) + (h10 * h * m0) + (h01 * y1) + (h11 * h * m1);
+}
+
+function evaluateCubicHermiteSecondDerivative(y0: number, y1: number, m0: number, m1: number, h: number, t: number) {
+  return (
+    ((12 * t - 6) * y0)
+    + ((6 * t - 4) * h * m0)
+    + ((-12 * t + 6) * y1)
+    + ((6 * t - 2) * h * m1)
+  ) / (h * h);
+}
+
+function extrapolateMonotoneSeries(
+  points: BtzsSeriesPoint[],
+  target: number,
+  metric: BtzsLookupMetric,
+  side: "left" | "right",
+  extrapolationStops: number,
+) {
+  if (points.length < 3 || extrapolationStops <= 0) {
+    return side === "left"
+      ? extrapolateSeriesInStopSpace(points[0]!, points[1]!, target, metric)
+      : extrapolateSeriesInStopSpace(points[points.length - 2]!, points[points.length - 1]!, target, metric);
+  }
+
+  const slopes = getMonotoneSlopes(points, metric);
+  const segmentLeftIndex = side === "left" ? 0 : points.length - 2;
+  const segmentRightIndex = segmentLeftIndex + 1;
+  const segmentLeft = points[segmentLeftIndex]!;
+  const segmentRight = points[segmentRightIndex]!;
+  const boundaryIndex = side === "left" ? 0 : points.length - 1;
+  const boundary = points[boundaryIndex]!;
+  const segmentWidth = segmentRight.x - segmentLeft.x;
+
+  if (segmentWidth <= SMALL_NUMBER_EPSILON) {
+    return boundary.y;
+  }
+
+  const boundaryY = transformBtzsY(metric, boundary.y);
+  const boundarySlope = slopes[boundaryIndex]!;
+  const boundarySecondDerivative = evaluateCubicHermiteSecondDerivative(
+    transformBtzsY(metric, segmentLeft.y),
+    transformBtzsY(metric, segmentRight.y),
+    slopes[segmentLeftIndex]!,
+    slopes[segmentRightIndex]!,
+    segmentWidth,
+    side === "left" ? 0 : 1,
+  );
+  const stopMultiplier = Math.pow(2, extrapolationStops);
+  const limit = boundary.x > 0
+    ? side === "left" ? boundary.x / stopMultiplier : boundary.x * stopMultiplier
+    : target;
+  const expansionWidth = Math.abs(limit - boundary.x);
+
+  if (expansionWidth <= SMALL_NUMBER_EPSILON) {
+    return boundary.y;
+  }
+
+  const offset = target - boundary.x;
+  const offsetDirection = Math.sign(offset) || (side === "left" ? -1 : 1);
+  const absoluteOffset = Math.abs(offset);
+  let decayDistance = Math.max(expansionWidth * 0.45, SMALL_NUMBER_EPSILON);
+  if (
+    Math.abs(boundarySlope) > SMALL_NUMBER_EPSILON
+    && Math.abs(boundarySecondDerivative) > SMALL_NUMBER_EPSILON
+    && boundarySlope * offsetDirection * boundarySecondDerivative < 0
+  ) {
+    decayDistance = Math.min(decayDistance, Math.abs(boundarySlope / boundarySecondDerivative) * 0.72);
+  }
+
+  const decay = 1 - Math.exp(-absoluteOffset / decayDistance);
+  const curvatureContribution = offsetDirection
+    * boundarySecondDerivative
+    * decayDistance
+    * (absoluteOffset - (decayDistance * decay));
+  let transformedValue = boundaryY + (boundarySlope * offset) + curvatureContribution;
+  const expectedDeltaSign = Math.sign(boundarySlope * offset);
+  if (
+    (expectedDeltaSign > 0 && transformedValue < boundaryY)
+    || (expectedDeltaSign < 0 && transformedValue > boundaryY)
+  ) {
+    transformedValue = transformBtzsY(metric, side === "left"
+      ? extrapolateSeriesInStopSpace(points[0]!, points[1]!, target, metric)
+      : extrapolateSeriesInStopSpace(points[points.length - 2]!, points[points.length - 1]!, target, metric));
+  }
+
+  return untransformBtzsY(metric, transformedValue);
+}
+
+function interpolateMonotoneSeries(
+  points: BtzsSeriesPoint[],
+  target: number,
+  metric: BtzsLookupMetric,
+  left: BtzsSeriesPoint,
+  right: BtzsSeriesPoint,
+  extrapolationStops: number,
+) {
+  if (points.length < 3) {
+    const ratio = (target - left.x) / (right.x - left.x);
+    return metric === "effectiveFilmSpeed"
+      ? interpolateLog2(left.y, right.y, ratio)
+      : interpolateLinear(left.y, right.y, ratio);
+  }
+
+  if (target < points[0]!.x) {
+    return extrapolateMonotoneSeries(points, target, metric, "left", extrapolationStops);
+  }
+  if (target > points[points.length - 1]!.x) {
+    return extrapolateMonotoneSeries(points, target, metric, "right", extrapolationStops);
+  }
+
+  const leftIndex = Math.max(0, points.findIndex((point) => point === left));
+  const rightIndex = Math.max(leftIndex + 1, points.findIndex((point) => point === right));
+  const slopes = getMonotoneSlopes(points, metric);
+  const x0 = left.x;
+  const x1 = right.x;
+  const h = x1 - x0;
+  const y0 = transformBtzsY(metric, left.y);
+  const y1 = transformBtzsY(metric, right.y);
+  const m0 = slopes[leftIndex]!;
+  const m1 = slopes[rightIndex]!;
+
+  const t = (target - x0) / h;
+  return untransformBtzsY(metric, evaluateCubicHermite(y0, y1, m0, m1, h, t));
+}
+
+function extrapolateSeriesInStopSpace(left: BtzsSeriesPoint, right: BtzsSeriesPoint, target: number, metric: BtzsLookupMetric) {
+  if (left.x <= 0 || right.x <= 0 || target <= 0) {
+    const ratio = (target - left.x) / (right.x - left.x);
+    return metric === "effectiveFilmSpeed"
+      ? interpolateLog2(left.y, right.y, ratio)
+      : interpolateLinear(left.y, right.y, ratio);
+  }
+
+  const leftX = Math.log2(left.x);
+  const rightX = Math.log2(right.x);
+  if (Math.abs(rightX - leftX) <= SMALL_NUMBER_EPSILON) {
+    return right.y;
+  }
+
+  const leftY = transformBtzsY(metric, left.y);
+  const rightY = transformBtzsY(metric, right.y);
+  const slope = (rightY - leftY) / (rightX - leftX);
+  return untransformBtzsY(metric, rightY + ((Math.log2(target) - rightX) * slope));
+}
+
 function resolveDevelopmentPercent(value: ExposureNumberInput, fallback: number) {
   const parsed = parsePositiveNumberInput(value);
   return parsed ?? fallback;
@@ -449,10 +676,22 @@ export function interpolateSimpleDevelopmentPercent(
 function interpolateSeriesValue(
   series: BtzsSeriesLookup,
   target: number,
-  allowExtrapolation = false,
+  options: { allowExtrapolation?: boolean | null; curveInterpolation?: boolean | null; extrapolationStops?: ExposureNumberInput } = {},
 ): BtzsInterpolationResult {
   const { axis, metric, points, supportedRange } = series;
   const warningParts: string[] = [];
+  const extrapolationStops = resolveNonNegativeInput(options.extrapolationStops, 0);
+  const allowExtrapolation = Boolean(options.allowExtrapolation) || extrapolationStops > 0;
+  const curveInterpolation = Boolean(options.curveInterpolation);
+  if (metric === "effectiveFilmSpeed" && curveInterpolation && points.some((point) => point.y <= 0)) {
+    return {
+      axis,
+      metric,
+      target,
+      supportedRange,
+      warning: "Effective film speed curve interpolation requires positive values.",
+    };
+  }
 
   if (!Number.isFinite(target) || target <= 0) {
     return {
@@ -477,6 +716,21 @@ function interpolateSeriesValue(
         supportedRange,
         warning: `${axisLabel} ${targetText} is outside the supported ${axisLabel} range ${rangeText}.`,
       };
+    }
+
+    if (extrapolationStops > 0) {
+      const outsideStops = target < supportedRange.min
+        ? Math.log2(supportedRange.min / target)
+        : Math.log2(target / supportedRange.max);
+      if (!Number.isFinite(outsideStops) || outsideStops > extrapolationStops + SMALL_NUMBER_EPSILON) {
+        return {
+          axis,
+          metric,
+          target,
+          supportedRange,
+          warning: `${axisLabel} ${targetText} is outside the experimental expanded ${axisLabel} range (${extrapolationStops} stops beyond ${rangeText}).`,
+        };
+      }
     }
 
     warningParts.push(`Extrapolated ${axisLabel} ${targetText} beyond the supported ${axisLabel} range ${rangeText}.`);
@@ -536,9 +790,11 @@ function interpolateSeriesValue(
   }
 
   const ratio = (target - left.x) / (right.x - left.x);
-  const value = metric === "effectiveFilmSpeed"
-    ? interpolateLog2(left.y, right.y, ratio)
-    : interpolateLinear(left.y, right.y, ratio);
+  const value = curveInterpolation
+    ? interpolateMonotoneSeries(points, target, metric, left, right, extrapolationStops)
+    : metric === "effectiveFilmSpeed"
+      ? interpolateLog2(left.y, right.y, ratio)
+      : interpolateLinear(left.y, right.y, ratio);
 
   return {
     axis,
@@ -870,10 +1126,10 @@ export function findBtzsLookupSeries(
 export function interpolateBtzsSeriesValue(
   series: BtzsSeriesLookup,
   target: ExposureNumberInput,
-  options?: { allowExtrapolation?: boolean | null },
+  options?: { allowExtrapolation?: boolean | null; curveInterpolation?: boolean | null; extrapolationStops?: ExposureNumberInput },
 ): BtzsInterpolationResult {
   const resolvedTarget = parsePositiveNumberInput(target);
-  return interpolateSeriesValue(series, resolvedTarget ?? Number.NaN, Boolean(options?.allowExtrapolation));
+  return interpolateSeriesValue(series, resolvedTarget ?? Number.NaN, options);
 }
 
 export function calculateBtzsExposure(input: BtzsCalculationInput): BtzsCalculationResult {
@@ -967,14 +1223,22 @@ export function calculateBtzsExposure(input: BtzsCalculationInput): BtzsCalculat
     ? interpolateBtzsSeriesValue(
       developmentTimeSeries,
       developmentTimeSeries.axis === "averageG" ? requiredG : sbr,
-      { allowExtrapolation: input.allowExtrapolation },
+      {
+        allowExtrapolation: input.allowExtrapolation,
+        curveInterpolation: input.curveInterpolation,
+        extrapolationStops: input.extrapolationStops,
+      },
     )
     : null;
   const effectiveFilmSpeedLookup = effectiveFilmSpeedSeries
     ? interpolateBtzsSeriesValue(
       effectiveFilmSpeedSeries,
       effectiveFilmSpeedSeries.axis === "averageG" ? requiredG : sbr,
-      { allowExtrapolation: input.allowExtrapolation },
+      {
+        allowExtrapolation: input.allowExtrapolation,
+        curveInterpolation: input.curveInterpolation,
+        extrapolationStops: input.extrapolationStops,
+      },
     )
     : null;
 

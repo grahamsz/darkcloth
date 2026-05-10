@@ -1,4 +1,4 @@
-const CACHE_NAME = "darkcloth-shell-v12";
+const CACHE_NAME = "darkcloth-shell-v13";
 const IMAGE_CACHE_NAME = "darkcloth-photograph-images-v1";
 const APP_SHELL_READY_MESSAGE = "DARKCLOTH_APP_SHELL_READY";
 const NAVIGATION_NETWORK_TIMEOUT_MS = 750;
@@ -25,9 +25,12 @@ const APP_SHELL_PATHS = new Set([
 const STATIC_ASSET_PATHS = new Set([
   "/manifest.webmanifest",
   "/apple-touch-icon.png",
+  "/icon.png",
   "/icon-192.png",
   "/icon-512.png",
-  "/darkcloth-icon.svg",
+  "/icon-maskable-192.png",
+  "/icon-maskable-512.png",
+  "/icon.svg",
 ]);
 const STATIC_ASSET_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 const SIGNED_PHOTOGRAPH_IMAGE_RE = /^\/api\/photographs\/[^/]+\/images\/[^/]+\/file$/;

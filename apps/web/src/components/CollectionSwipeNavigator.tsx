@@ -21,6 +21,7 @@ type SwipeSnapshot = {
 };
 
 export type CollectionSwipeDirection = "previous" | "next";
+export type CollectionSwipeNavigationWidth = "narrow" | "page" | "wide";
 
 function rememberCollectionSwipeEntryDirection(direction: CollectionSwipeDirection) {
   try {
@@ -66,12 +67,14 @@ export function CollectionSwipeNavigator({
   next,
   positionLabel,
   collectionLabel,
+  navigationWidth = "page",
 }: {
   children: ReactNode;
   previous?: CollectionSwipeDestination | null;
   next?: CollectionSwipeDestination | null;
   positionLabel?: string | null;
   collectionLabel: string;
+  navigationWidth?: CollectionSwipeNavigationWidth;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -249,7 +252,7 @@ export function CollectionSwipeNavigator({
 
   return (
     <div
-      className="collection-swipe"
+      className={`collection-swipe collection-swipe--nav-${navigationWidth}`}
       data-has-navigation={hasNavigation ? "true" : undefined}
       data-swipe-dragging={isDragging ? "true" : undefined}
       data-swipe-entering={isEntering ? "true" : undefined}

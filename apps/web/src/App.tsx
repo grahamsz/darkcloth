@@ -9,6 +9,8 @@ import { AppLayout } from "./components/AppLayout";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AdminPage } from "./pages/AdminPage";
 import { PhotosPage } from "./pages/PhotosPage";
@@ -61,7 +63,7 @@ function DocumentTitleSync() {
 
   useEffect(() => {
     const title = (() => {
-      if (pathname === "/" || pathname === "/login" || pathname === "/register") {
+      if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password") {
         return "Darkcloth";
       }
 
@@ -319,6 +321,8 @@ export function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
@@ -347,6 +351,7 @@ export function App() {
                 <Route path={FILM_STOCK_LIST_PATH} element={<GearPage section="film_stocks" />} />
                 <Route path={FILM_STOCK_NEW_PATH} element={<FilmStockCreatePage />} />
                 <Route path={`${FILM_STOCK_LIST_PATH}/:id`} element={<FilmStockDetailPage />} />
+                <Route path={`${FILM_STOCK_LIST_PATH}/:id/development-profiles`} element={<FilmStockDetailPage />} />
                 <Route path={`${FILM_STOCK_LIST_PATH}/:id/development-profiles/new`} element={<FilmStockDetailPage />} />
                 <Route path={`${FILM_STOCK_LIST_PATH}/:id/edit`} element={<FilmStockDetailPage />} />
 

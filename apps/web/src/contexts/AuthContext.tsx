@@ -29,6 +29,7 @@ function readCachedUser(): User | null {
     return {
       id: parsed.id,
       email: parsed.email,
+      email_verified_at: typeof parsed.email_verified_at === "string" ? parsed.email_verified_at : null,
       default_timezone: typeof parsed.default_timezone === "string" ? parsed.default_timezone : null,
       auto_use_current_location: parsed.auto_use_current_location === true,
       created_at: typeof parsed.created_at === "string" ? parsed.created_at : "",

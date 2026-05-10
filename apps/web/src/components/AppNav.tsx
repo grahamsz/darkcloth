@@ -7,7 +7,6 @@ export function AppNav() {
   const { user } = useAuth();
   const { items: timerItems, endingSoon } = useDevelopmentTimerRuntime(user?.id);
   const location = useLocation();
-  const isAdmin = user?.email.trim().toLowerCase() === "graha.ms@graha.ms";
   const gearSectionLinks = [
     { to: "/app/gear/cameras", label: "Cameras" },
     { to: "/app/gear/lenses", label: "Lenses" },
@@ -64,14 +63,6 @@ export function AppNav() {
         </div>
         <div className="app-nav-user">
           <span className="app-nav-email">{user?.email}</span>
-          {isAdmin && (
-            <NavLink
-              to="/app/admin"
-              className={({ isActive }) => (isActive ? "app-nav-profile-link active" : "app-nav-profile-link")}
-            >
-              Admin
-            </NavLink>
-          )}
           <NavLink
             to="/app/profile"
             className={({ isActive }) => (isActive ? "app-nav-profile-link active" : "app-nav-profile-link")}

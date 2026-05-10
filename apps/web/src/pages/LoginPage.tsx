@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +34,13 @@ export function LoginPage() {
             <span className="brand-wordmark-cloth">cloth</span>
           </span>
         </Link>
-        <p className="auth-tagline">A field notebook for film photography.</p>
+        <p className="auth-tagline">A field notebook for large format photographers.</p>
         <h1>Sign in</h1>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          {searchParams.get("email_verification") === "invalid" && (
+            <p className="form-error">Verification link is invalid or expired.</p>
+          )}
           {error && <p className="form-error">{error}</p>}
 
           <div className="field">
@@ -70,6 +74,9 @@ export function LoginPage() {
 
         <p className="auth-switch">
           No account? <Link to="/register">Create one</Link>
+        </p>
+        <p className="auth-switch">
+          <Link to="/forgot-password">Forgot password?</Link>
         </p>
       </div>
     </div>

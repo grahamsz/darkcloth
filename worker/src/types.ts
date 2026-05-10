@@ -1,6 +1,7 @@
 export interface User {
   id: string;
   email: string;
+  email_verified_at: string | null;
   default_timezone: string | null;
   auto_use_current_location: boolean;
   created_at: string;
@@ -151,6 +152,8 @@ export interface DevelopmentProfileRow {
   simple_n_minus_one_percent: number | null;
   simple_n_plus_one_percent: number | null;
   simple_n_plus_two_percent: number | null;
+  btzs_curve_interpolation_enabled?: number | null;
+  btzs_extrapolation_stops?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -191,6 +194,8 @@ export interface BTZSDevelopmentProfile extends DevelopmentProfileBase {
   chartData: BTZSChartData[] | null;
   sourceFiles: BTZSSourceFile[] | null;
   rawXdf: RawXdfMetadata | null;
+  btzsCurveInterpolationEnabled?: boolean;
+  btzsExtrapolationStops?: number;
 }
 
 export type DevelopmentProfile = SimpleDevelopmentProfile | BTZSDevelopmentProfile;

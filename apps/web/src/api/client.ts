@@ -217,6 +217,7 @@ async function fetchWithReadTimeout(input: RequestInfo | URL, init: RequestInit)
 export interface User {
   id: string;
   email: string;
+  email_verified_at: string | null;
   default_timezone: string | null;
   auto_use_current_location: boolean;
   created_at: string;
@@ -237,6 +238,11 @@ export interface UpdateMePayload {
 
 export interface UpdatePasswordPayload {
   current_password: string;
+  new_password: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
   new_password: string;
 }
 
@@ -393,6 +399,8 @@ export interface BTZSDevelopmentProfile extends DevelopmentProfileBase {
   rawXdf: RawXdfMetadata | null;
   chartData: BTZSChartData[] | null;
   sourceFiles: BTZSSourceFile[] | null;
+  btzsCurveInterpolationEnabled?: boolean;
+  btzsExtrapolationStops?: number;
 }
 
 export type DevelopmentProfile = SimpleDevelopmentProfile | BTZSDevelopmentProfile;
@@ -430,6 +438,8 @@ export interface BTZSDevelopmentProfileCreate {
   rawXdf?: RawXdfMetadata | null;
   chartData?: BTZSChartData[] | null;
   sourceFiles?: BTZSSourceFile[] | null;
+  btzsCurveInterpolationEnabled?: boolean | null;
+  btzsExtrapolationStops?: number | null;
 }
 
 export type DevelopmentProfileCreate = SimpleDevelopmentProfileCreate | BTZSDevelopmentProfileCreate;
@@ -456,6 +466,8 @@ export interface DevelopmentProfileUpdate {
   rawXdf?: RawXdfMetadata | null;
   chartData?: BTZSChartData[] | null;
   sourceFiles?: BTZSSourceFile[] | null;
+  btzsCurveInterpolationEnabled?: boolean | null;
+  btzsExtrapolationStops?: number | null;
 }
 
 export type RollStatus = "unexposed" | "exposing" | "finished" | "processed" | "developed";
@@ -945,6 +957,11 @@ export const api = {
     }),
 
   me: () => request<User>("/auth/me"),
+  resendEmailVerification: () =>
+    request<{ sent: boolean; already_verified: boolean; user?: User }>("/auth/email/verification/resend", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
   updateMe: (data: UpdateMePayload) =>
     invalidateAfter(request<User>("/auth/me", {
       method: "PATCH",
@@ -953,6 +970,16 @@ export const api = {
   updatePassword: (data: UpdatePasswordPayload) =>
     request<User>("/auth/password", {
       method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  requestPasswordReset: (email: string) =>
+    requestPublic<{ ok: boolean }>("/auth/password/forgot", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (data: ResetPasswordPayload) =>
+    requestPublic<{ ok: boolean }>("/auth/password/reset", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 

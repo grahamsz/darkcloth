@@ -453,7 +453,7 @@ function PhotoDetailView() {
     >
     <div
       className={[
-        "page page-narrow photo-page photo-page--view",
+        "page photo-page photo-page--view",
         entryDirection ? `photo-page--swipe-loaded-${entryDirection}` : "",
       ].filter(Boolean).join(" ")}
       key={photo.id}

@@ -179,6 +179,7 @@ function FormPageShell({
       positionLabel={collectionSwipe.positionLabel}
       previous={collectionSwipe.previous}
       next={collectionSwipe.next}
+      navigationWidth={pageClassName.includes("page-wide") ? "wide" : pageClassName.includes("page-narrow") ? "narrow" : "page"}
     >
       {page}
     </CollectionSwipeNavigator>
@@ -2037,7 +2038,7 @@ export function RollDetailPage() {
   );
 
   return (
-    <CollectionSwipeNavigator {...collectionSwipe}>
+    <CollectionSwipeNavigator {...collectionSwipe} navigationWidth="wide">
     <div className="page page-wide roll-page roll-detail-page">
       <div className="page-header">
         <div>
@@ -3053,7 +3054,7 @@ export function FilmHolderEditPage() {
 
   if (loading) {
     return (
-      <CollectionSwipeNavigator {...filmHolderCollectionSwipe}>
+      <CollectionSwipeNavigator {...filmHolderCollectionSwipe} navigationWidth="wide">
         <div className="page page-wide"><p className="muted">Loading film holder…</p></div>
       </CollectionSwipeNavigator>
     );

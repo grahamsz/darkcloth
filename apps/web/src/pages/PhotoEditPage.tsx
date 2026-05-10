@@ -670,6 +670,8 @@ export function PhotoEditPage() {
           flareFactor,
           meterIso: 100,
           chartData: selectedBtzsProfile.chartData,
+          curveInterpolation: selectedBtzsProfile.btzsCurveInterpolationEnabled,
+          extrapolationStops: selectedBtzsProfile.btzsExtrapolationStops,
           compensationStops,
           bellowsCorrectionStops: bellowsCorrection.stops,
           filterFactors: selectedFilters,

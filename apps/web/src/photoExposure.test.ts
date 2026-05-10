@@ -1493,6 +1493,92 @@ describe("photo exposure math helpers", () => {
     expect(interpolateBtzsSeriesValue(efsSeries!, 0.2).value).toBeCloseTo(200);
   });
 
+  it("supports optional BTZS curve interpolation and bounded experimental extrapolation", () => {
+    const curvedSeries = findBtzsLookupSeries([
+      {
+        title: "Average G vs Development Time",
+        xAxisLabel: "Average G",
+        yAxisLabel: "Development Time",
+        points: [
+          { averageG: 1, developmentTime: 1 },
+          { averageG: 2, developmentTime: 4 },
+          { averageG: 3, developmentTime: 9 },
+        ],
+      },
+    ], "developmentTime");
+    const straightLookup = interpolateBtzsSeriesValue(curvedSeries!, 1.5);
+    const curvedLookup = interpolateBtzsSeriesValue(curvedSeries!, 1.5, { curveInterpolation: true });
+    const curvedExpandedLookup = interpolateBtzsSeriesValue(curvedSeries!, 3.5, {
+      curveInterpolation: true,
+      extrapolationStops: 1,
+    });
+
+    expect(straightLookup.value).toBeCloseTo(2.5);
+    expect(curvedLookup.value).not.toBeCloseTo(straightLookup.value ?? 0, 5);
+    expect(curvedExpandedLookup.value).toBeCloseTo(12.2, 1);
+    expect(curvedExpandedLookup.value).not.toBeCloseTo(10.9);
+
+    const curvedEfsSeries = findBtzsLookupSeries([
+      {
+        title: "Effective Film Speed vs Average G",
+        xAxisLabel: "Average G",
+        yAxisLabel: "Effective Film Speed",
+        points: [
+          { averageG: 0.22, effectiveFilmSpeed: 83.41 },
+          { averageG: 0.33, effectiveFilmSpeed: 87.06 },
+          { averageG: 0.41, effectiveFilmSpeed: 102.34 },
+        ],
+      },
+    ], "effectiveFilmSpeed");
+    const expandedLowEfs = interpolateBtzsSeriesValue(curvedEfsSeries!, 0.18, {
+      curveInterpolation: true,
+      extrapolationStops: 0.3,
+    });
+    const expandedHighEfs = interpolateBtzsSeriesValue(curvedEfsSeries!, 0.5, {
+      curveInterpolation: true,
+      extrapolationStops: 0.3,
+    });
+
+    expect(expandedLowEfs.value).toBeLessThan(83.41);
+    expect(expandedHighEfs.value).toBeGreaterThan(102.34);
+    expect(expandedHighEfs.value).toBeCloseTo(130.8, 1);
+
+    const curveLogValue = (target: number) => {
+      const value = interpolateBtzsSeriesValue(curvedEfsSeries!, target, {
+        curveInterpolation: true,
+        extrapolationStops: 0.3,
+      }).value;
+      if (typeof value !== "number") throw new Error(`Expected curve value for ${target}.`);
+      return Math.log2(value);
+    };
+    const boundary = 0.41;
+    const delta = 0.0001;
+    const insideSlope = (curveLogValue(boundary) - curveLogValue(boundary - delta)) / delta;
+    const outsideSlope = (curveLogValue(boundary + delta) - curveLogValue(boundary)) / delta;
+    const insideCurvature = (curveLogValue(boundary) - (2 * curveLogValue(boundary - delta)) + curveLogValue(boundary - (2 * delta))) / (delta * delta);
+    const outsideCurvature = (curveLogValue(boundary + (2 * delta)) - (2 * curveLogValue(boundary + delta)) + curveLogValue(boundary)) / (delta * delta);
+
+    expect(Math.abs(outsideSlope - insideSlope)).toBeLessThan(0.01);
+    expect(Math.abs(outsideCurvature - insideCurvature)).toBeLessThan(0.5);
+
+    const boundedSeries = findBtzsLookupSeries([
+      {
+        title: "Average G vs Development Time",
+        xAxisLabel: "Average G",
+        yAxisLabel: "Development Time",
+        points: [
+          { averageG: 0.5, developmentTime: 5 },
+          { averageG: 1, developmentTime: 10 },
+        ],
+      },
+    ], "developmentTime");
+    expect(interpolateBtzsSeriesValue(boundedSeries!, 0.25).value).toBeUndefined();
+    const expandedLookup = interpolateBtzsSeriesValue(boundedSeries!, 0.25, { extrapolationStops: 1 });
+
+    expect(expandedLookup.value).toBeCloseTo(2.5);
+    expect(expandedLookup.warning).toContain("Extrapolated");
+  });
+
   it("converts stop-based SBR to Average G for BTZS exposure calculations", () => {
     const result = calculateBtzsExposure({
       lowEv: 10,
